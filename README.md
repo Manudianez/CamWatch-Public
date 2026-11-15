@@ -1,4 +1,4 @@
-# CamWatch (nombre provisional)
+# CamWatch
 
 Contador en vivo de Stripchat y Chaturbate. Entras con tu cuenta de Statbate,
 eliges la plataforma con el selector, escribes el nombre de una modelo y ves si está en línea, quién está en la sala y cuántos

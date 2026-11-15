@@ -11,7 +11,7 @@ SITES = {
 
 
 class Config:
-    # Nombre provisional: cámbialo aquí o con APP_NAME en .env.
+    # Nombre de la app; se puede cambiar con APP_NAME en .env.
     APP_NAME = os.getenv("APP_NAME", "CamWatch")
     VERSION = "0.4.0"
 
