@@ -158,6 +158,7 @@
   .led.bad  { background: var(--bad); }
   .error { margin: 10px 2px 0; color: var(--bad); font-size: 13px; font-weight: 600; }
 
+  .dial .hint { font-size: 11px; color: var(--dial-label); opacity: .85; }
   .dials { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 14px; }
   .dial {
     background: var(--dial); border-radius: min(var(--radius), 10px); padding: 10px 12px;
@@ -447,11 +448,15 @@ async function load(name) {
   if (rooms.get(name) === room) draw(name);
 }
 
-function dial(label, value) {
+function dial(label, value, note) {
   const d = el('div', 'dial');
   d.append(el('div', 'label', label), el('div', 'value', value));
+  if (note) d.append(el('div', 'hint', note));
   return d;
 }
+
+// Sin propinas de los presentes se muestra una raya, no un cero que parezca un fallo.
+function tokens(n) { return n ? nf.format(n) : '—'; }
 
 function draw(name) {
   const room = rooms.get(name);
@@ -487,8 +492,8 @@ function draw(name) {
   const dials = el('div', 'dials');
   dials.append(
     dial('Espectadores', data ? nf.format(data.viewers) : '—'),
-    dial('Tokens última hora', data ? nf.format(data.tokens_hour) : '—'),
-    dial('Tokens hoy', data ? nf.format(data.tokens_day) : '—'),
+    dial('Dados última hora', data ? tokens(data.tokens_hour) : '—', 'por los presentes'),
+    dial('Dados hoy', data ? tokens(data.tokens_day) : '—', 'por los presentes'),
   );
   parts.push(dials);
 
@@ -512,7 +517,7 @@ function draw(name) {
     }
     parts.push(box);
     parts.push(el('div', 'foot',
-      'Los tokens son los que han dado en esta sala quienes están dentro ahora. ' +
+      'Los tokens son los que han dado en esta sala quienes están dentro ahora, no el total de la emisión. ' +
       'Datos de Statbate, tomados ' + (ago(data.cached_at) || 'hace un momento') + '; se renuevan cada minuto.'));
   }
 
