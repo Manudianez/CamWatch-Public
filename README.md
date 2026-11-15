@@ -8,6 +8,14 @@ Los datos vienen de [Statbate Plus](https://plus.statbate.com) mediante
 «Sign in with Statbate». Cada persona usa su propia cuenta y necesita un plan
 Simple Plus o Studio Plus para recibir datos.
 
+## Aspecto
+
+Al abrir, la app tiene su aspecto de acero pulido. Al elegir plataforma, toda
+la interfaz cambia al instante a un aspecto inspirado en ella (colores, formas
+y tipografía); pulsar de nuevo la tecla elegida, o el título, vuelve al acero.
+Los tres aspectos son variables CSS al principio de `app/index.html`. No se
+usan logotipos ni recursos de las plataformas.
+
 ## Puesta en marcha
 
 1. **Registrar la app en Statbate.** Se hace por correo (ver su

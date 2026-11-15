@@ -5,8 +5,8 @@ load_dotenv()
 
 # Plataformas entre las que se puede elegir. La clave es el nombre que usa Statbate.
 SITES = {
-    "stripchat": {"label": "Stripchat", "url": "https://stripchat.com/", "accent": "#1f6fa8"},
-    "chaturbate": {"label": "Chaturbate", "url": "https://chaturbate.com/", "accent": "#a8591f"},
+    "stripchat": {"label": "Stripchat", "url": "https://stripchat.com/"},
+    "chaturbate": {"label": "Chaturbate", "url": "https://chaturbate.com/"},
 }
 
 
