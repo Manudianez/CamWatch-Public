@@ -246,10 +246,12 @@ async def room(site: str, username: str, request: Request):
 
 @app.get("/api/debug/{site}/{username}")
 async def debug_room(site: str, username: str, request: Request):
-    """Lo que responde Statbate para una sala que sigues (nombres ocultos)."""
+    """Lo que responde Statbate para una sala (nombres de espectadores ocultos)."""
     session = signed_in(request)
-    if {"site": site, "username": username} not in db.list_follows(session["account_id"]):
-        raise HTTPException(404, "No sigues a esta modelo.")
+    known_site(site)
+    username = clean_username(username)
+    if not username:
+        raise HTTPException(400, "Nombre no válido.")
     try:
         return await call(session, statbate.room_raw, site, username)
     except (PlanRequired, RateLimited, httpx.HTTPError) as problem:
