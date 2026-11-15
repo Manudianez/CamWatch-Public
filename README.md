@@ -58,7 +58,8 @@ retorno pública y definir `PUBLIC_URL` (ver `.env.example`).
 
 - Statbate refresca cada sala como mucho una vez por minuto: no es instantáneo.
 - Los tokens mostrados son los que han dado en esa sala los espectadores que
-  están dentro en ese momento. No hay propinas una a una ni chat.
+  están dentro en ese momento, en la última hora y en la última semana.
+  Statbate no da el total diario de la sala, ni propinas una a una, ni chat.
 - Una sala desconectada y un nombre que no existe se ven igual.
 - Cada cuenta puede seguir hasta 10 modelos por plataforma.
 

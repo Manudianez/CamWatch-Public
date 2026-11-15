@@ -491,23 +491,24 @@ function draw(name) {
 
   const dials = el('div', 'dials');
   dials.append(
-    dial('Espectadores', data ? nf.format(data.viewers) : '—'),
+    dial('Espectadores', data ? nf.format(data.viewers) : '—',
+         data && data.guests ? '+ ' + nf.format(data.guests) + ' sin cuenta' : ''),
     dial('Dados última hora', data ? tokens(data.tokens_hour) : '—', 'por los presentes'),
-    dial('Dados hoy', data ? tokens(data.tokens_day) : '—', 'por los presentes'),
+    dial('Dados esta semana', data ? tokens(data.tokens_week) : '—', 'por los presentes'),
   );
   parts.push(dials);
 
   if (data && data.online) {
     const box = el('div', 'box');
     const h3 = el('h3', null, 'En la sala');
-    h3.append(el('span', null, 'tokens hoy · en total'));
+    h3.append(el('span', null, 'tokens semana · en total'));
     box.append(h3);
     if (data.users.length) {
       const ul = el('ul');
       for (const u of data.users) {
         const li = el('li');
         li.append(el('span', 'u', u.username),
-                  el('span', u.day ? 'amt' : 'amt none', u.day ? nf.format(u.day) + ' tk' : '—'),
+                  el('span', u.week ? 'amt' : 'amt none', u.week ? nf.format(u.week) + ' tk' : '—'),
                   el('span', 'sub', nf.format(u.all_time) + ' tk'));
         ul.append(li);
       }

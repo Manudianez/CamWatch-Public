@@ -77,26 +77,34 @@ def iso_time(value):
     return value if isinstance(value, str) and value else None
 
 
+def _int(value):
+    return int(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else 0
+
+
 def parse_room(username, data):
+    # Statbate muestra en su propia tabla 1h, 1 semana, 30 días y total
+    # (ver tipsColumns); «tipsDay» llega siempre a 0, así que no se usa.
     users = []
     for user in data.get("users") or []:
         if not isinstance(user, dict) or not user.get("username"):
             continue
         users.append({
             "username": str(user["username"]),
-            "hour": int(user.get("tipsHour") or 0),
-            "day": int(user.get("tipsDay") or 0),
-            "month": int(user.get("tipsThirtyDays") or 0),
-            "all_time": int(user.get("allTimeTokens") or 0),
+            "hour": _int(user.get("tipsHour")),
+            "week": _int(user.get("tipsWeek")),
+            "month": _int(user.get("tipsThirtyDays")),
+            "all_time": _int(user.get("allTimeTokens")),
         })
-    users.sort(key=lambda u: (-u["day"], -u["month"], -u["all_time"], u["username"].lower()))
+    users.sort(key=lambda u: (-u["week"], -u["month"], -u["all_time"], u["username"].lower()))
+    summary = data.get("summary") if isinstance(data.get("summary"), dict) else {}
     return {
         "username": username,
         "online": True,
         "cached_at": iso_time(data.get("cached_at")),
         "viewers": len(users),
+        "guests": _int(summary.get("guests")),   # invitados sin cuenta: no salen en la lista
         "tokens_hour": sum(u["hour"] for u in users),
-        "tokens_day": sum(u["day"] for u in users),
+        "tokens_week": sum(u["week"] for u in users),
         "users": users,
     }
 
@@ -170,6 +178,9 @@ class StatbateClient:
             )[:5]
             body["users"] = [dict(u, username=f"usuario_{i + 1}") for i, u in enumerate(sample)]
             body["total_users"] = len(users)
+        if isinstance(body, dict) and isinstance(body.get("parsedUsers"), dict):
+            body["parsedUsers"] = {k: len(v) if isinstance(v, list) else v
+                                   for k, v in body["parsedUsers"].items()}
         return {"http": response.status_code, "body": body}
 
     async def room(self, access_token, site, username):
@@ -179,6 +190,6 @@ class StatbateClient:
         )
         if response.status_code == 404:  # desconectada o inexistente
             return {"username": username, "online": False, "viewers": 0,
-                    "tokens_hour": 0, "tokens_day": 0, "users": [], "cached_at": None}
+                    "guests": 0, "tokens_hour": 0, "tokens_week": 0, "users": [], "cached_at": None}
         response.raise_for_status()
         return parse_room(username, response.json())
