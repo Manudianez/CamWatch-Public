@@ -7,6 +7,7 @@ import base64
 import hashlib
 import re
 import secrets
+from datetime import datetime, timezone
 from urllib.parse import urlencode
 
 import httpx
@@ -65,6 +66,17 @@ def authorize_url(state, verifier, install_id):
     })
 
 
+def iso_time(value):
+    """Statbate manda la hora como texto ISO o como segundos desde 1970."""
+    if isinstance(value, (int, float)) and value > 0:
+        if value > 1e11:      # milisegundos
+            value /= 1000
+        return datetime.fromtimestamp(value, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    if isinstance(value, str) and value.strip().isdigit():
+        return iso_time(int(value))
+    return value if isinstance(value, str) and value else None
+
+
 def parse_room(username, data):
     users = []
     for user in data.get("users") or []:
@@ -81,7 +93,7 @@ def parse_room(username, data):
     return {
         "username": username,
         "online": True,
-        "cached_at": data.get("cached_at"),
+        "cached_at": iso_time(data.get("cached_at")),
         "viewers": len(users),
         "tokens_hour": sum(u["hour"] for u in users),
         "tokens_day": sum(u["day"] for u in users),

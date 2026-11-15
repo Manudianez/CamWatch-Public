@@ -243,6 +243,7 @@ function el(tag, cls, text) {
 function ago(when) {
   if (!when) return '';
   const s = Math.max(0, (Date.now() - new Date(when).getTime()) / 1000);
+  if (!(s < 86400 * 7)) return '';   // hora ilegible o absurda: mejor no mostrarla
   if (s < 90) return 'hace un momento';
   if (s < 3600) return 'hace ' + Math.floor(s / 60) + ' min';
   return 'hace ' + Math.floor(s / 3600) + ' h';
