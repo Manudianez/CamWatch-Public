@@ -7,6 +7,7 @@ import os
 import re
 import time
 from contextlib import asynccontextmanager
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 import httpx
@@ -31,14 +32,16 @@ COOKIE_INSTALL = "cw_install"
 
 statbate = StatbateClient()
 refresh_locks = {}   # sid -> candado: una sola renovación en curso por sesión
-stripchat_income_cache = (0, {})
-stripchat_income_lock = asyncio.Lock()
+live_session_cache = {}
+live_session_locks = {}
 room_cache = {}      # (cuenta, modelo) -> (instante, datos)
 
 
 @asynccontextmanager
 async def lifespan(app):
     db.initialize_database()
+    live_session_cache.clear()
+    live_session_locks.update({site: asyncio.Lock() for site in SITES})
     if not Config.STATBATE_CLIENT_ID:
         logger.warning("Falta STATBATE_CLIENT_ID: el inicio de sesión no funcionará.")
     yield
@@ -233,45 +236,94 @@ async def stripchat_audience(username):
             response.raise_for_status()
         script = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', response.text, re.S)
         if not script:
-            return None
+            return {}
         page = json.loads(script[1])["props"]["pageProps"]
-        if page.get("isOnline") is not True:
-            return None
-        stream = page["userInfo"]["currentStreamInfo"]
-        count, measured_at = stream["Viewers"], stream["Time"]
+        online = page.get("isOnline")
+        if type(online) is not bool or not isinstance(page.get("userInfo"), dict):
+            return {}
+        if not online:
+            samples = page.get("lastCamSessionDetails") or []
+            times = [
+                sample["Time"] for sample in samples
+                if isinstance(sample, dict) and isinstance(sample.get("Time"), str)
+            ]
+            return {"online": False, "last_live_at": max(times, default=None)}
+        stream = page["userInfo"].get("currentStreamInfo") or {}
+        count, measured_at = stream.get("Viewers"), stream.get("Time")
         if type(count) is int and count >= 0 and isinstance(measured_at, str):
-            return {"count": count, "measured_at": measured_at}
+            return {"online": True, "audience": {"count": count, "measured_at": measured_at}}
+        return {"online": True}
     except (httpx.HTTPError, ValueError, KeyError, TypeError):
-        return None
-    return None
+        return {}
+    return {}
 
 
-async def stripchat_session_tokens(username):
-    """Convert Statbate's public live-session estimate from USD to tokens."""
-    global stripchat_income_cache
-    async with stripchat_income_lock:
-        fetched_at, rooms = stripchat_income_cache
+async def chaturbate_room_status(username):
+    """Check Chaturbate when Statbate returns an empty audience."""
+    try:
+        async with httpx.AsyncClient(timeout=4) as client:
+            response = await client.get(f"https://chaturbate.com/api/chatvideocontext/{username}/")
+        if response.status_code == 404:
+            return {"online": False, "not_found": True}
+        response.raise_for_status()
+        status = response.json().get("room_status")
+        if status == "offline":
+            return {"online": False}
+        if status in {"public", "private", "hidden", "away", "group"}:
+            return {"online": True}
+    except (httpx.HTTPError, ValueError, AttributeError):
+        pass
+    return {"online": None}
+
+
+async def statbate_last_online(username):
+    """Read the last sighting from Statbate's public Stripchat profile."""
+    try:
+        async with httpx.AsyncClient(timeout=4, follow_redirects=True) as client:
+            response = await client.get(f"https://statbate.com/search/3/{username}")
+            response.raise_for_status()
+        match = re.search(r'"name":\s*"Last online",\s*"value":\s*"(\d+)([mhd]) ago"', response.text)
+        if match:
+            amount, unit = match.groups()
+            reference = parsedate_to_datetime(response.headers["date"]).timestamp()
+            return reference - int(amount) * {"m": 60, "h": 3600, "d": 86400}[unit], unit
+    except (httpx.HTTPError, ValueError, KeyError):
+        pass
+    return None, None
+
+
+async def live_session(site, username):
+    """Read the current session recorded in Statbate's public room list."""
+    url = {
+        "stripchat": "https://statbate.com/strip/online",
+        "chaturbate": "https://statbate.com/online",
+    }[site]
+    async with live_session_locks[site]:
+        fetched_at, rooms = live_session_cache.get(site, (0, {}))
         if time.monotonic() - fetched_at >= 60 or not fetched_at:
             rooms = {}
             try:
                 async with httpx.AsyncClient(timeout=5, follow_redirects=True) as client:
-                    response = await client.get("https://statbate.com/strip/online")
+                    response = await client.get(url)
                     response.raise_for_status()
                 match = re.search(r"var listData = (\{[^\n]*\});", response.text)
                 if match:
                     rooms = {
-                        name.casefold(): room.get("income")
+                        name.casefold(): (room.get("start"), room.get("income"))
                         for name, room in json.loads(match[1]).items()
                         if isinstance(room, dict)
                     }
             except (httpx.HTTPError, ValueError):
                 pass
-            stripchat_income_cache = (time.monotonic(), rooms)
+            live_session_cache[site] = (time.monotonic(), rooms)
 
-    income = rooms.get(username.casefold())
-    if type(income) in (int, float) and income >= 0:
-        return round(income * 20)  # Statbate usa 0,05 USD por token de Stripchat.
-    return None
+    started_at, income = rooms.get(username.casefold(), (None, None))
+    result = {}
+    if type(started_at) is int and 0 < started_at <= time.time():
+        result["started_at"] = started_at
+    if site == "stripchat" and type(income) in (int, float) and income >= 0:
+        result["session_tokens_estimate"] = round(income * 20)
+    return result
 
 
 @app.get("/api/room/{site}/{username}")
@@ -291,11 +343,37 @@ async def room(site: str, username: str, request: Request):
         raise HTTPException(429, "Statbate pide ir más despacio. Se reintentará enseguida.")
     except (httpx.HTTPError, ValueError) as problem:
         logger.warning(f"{site}/{username}: {problem!r}")
+        if site == "stripchat":
+            explorer = await stripchat_audience(username)
+            if "online" in explorer:
+                return {**explorer, "partial": True}
         raise HTTPException(502, "No se pudo consultar Statbate.")
-    if site == "stripchat" and data["online"]:
-        data["audience"], data["session_tokens_estimate"] = await asyncio.gather(
-            stripchat_audience(username), stripchat_session_tokens(username)
+    if site == "stripchat":
+        explorer, session_stats = await asyncio.gather(
+            stripchat_audience(username), live_session(site, username)
         )
+        if explorer.get("online") is True or session_stats.get("started_at"):
+            data["online"] = True
+        elif not (data["viewers"] or data["guests"]):
+            if explorer.get("online") is False:
+                data["online"] = False
+            elif data["online"]:
+                data["online"] = None
+
+        if data["online"]:
+            data["audience"] = explorer.get("audience")
+            data.update(session_stats)
+        else:
+            data["last_live_at"] = explorer.get("last_live_at")
+            if not data["last_live_at"]:
+                last_seen, precision = await statbate_last_online(username)
+                data.update(last_seen_at=last_seen, last_seen_precision=precision)
+    elif data["online"]:
+        session_stats = await live_session(site, username)
+        if not (data["viewers"] or data["guests"] or session_stats.get("started_at")):
+            data.update(await chaturbate_room_status(username))
+        if data["online"]:
+            data.update(session_stats)
     data["checked_at"] = time.time()
     room_cache[key] = (time.time(), data)
     return data
