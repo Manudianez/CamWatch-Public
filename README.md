@@ -11,8 +11,8 @@ Simple Plus o Studio Plus para recibir datos.
 ## Aspecto
 
 Al abrir, la app tiene su aspecto de acero pulido. Al elegir plataforma, toda
-la interfaz cambia al instante a un aspecto inspirado en ella (colores, formas
-y tipografía); pulsar de nuevo la tecla elegida, o el título, vuelve al acero.
+la interfaz cambia al instante a un aspecto que imita el de su web (colores,
+formas y tipografía); pulsar de nuevo la tecla elegida, o el título, vuelve al acero.
 Los tres aspectos son variables CSS al principio de `app/index.html`. No se
 usan logotipos ni recursos de las plataformas.
 

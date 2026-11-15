@@ -33,51 +33,53 @@
     --dial-font: ui-monospace, "SF Mono", Consolas, "Roboto Mono", monospace;
     --box: rgba(255,255,255,.55); --box-border: #9aa2ab; --box-shadow: inset 0 1px 3px rgba(0,0,0,.18);
     --row-line: rgba(0,0,0,.06);
-    --accent: #1f6fa8; --amount: #1f6fa8;
+    --accent: #1f6fa8;
+    --amount: #1f6fa8; --amount-bg: transparent; --amount-pad: 0; --amount-radius: 0;
+    --user-ink: var(--ink); --box-title: var(--ink-soft);
     --live: #1fb866; --off: #7d8590; --bad: #c8402f;
   }
 
-  /* ---------- Chaturbate: claro y plano, barra azul, naranja y enlaces azules ---------- */
+  /* ---------- Chaturbate: azul noche, naranja, enlaces celestes, propinas en amarillo ---------- */
   :root[data-theme="chaturbate"] {
-    --font: Ubuntu, Arial, Helvetica, sans-serif;
-    --page: #eef0f1;
-    --bar: #0c6a93; --bar-line: #f47321; --bar-soft: #d4e9f3;
-    --title: linear-gradient(#fff, #fff); --title-filter: none;
-    --ink: #222; --ink-soft: #5a5a5a; --name-ink: #0a5a83;
-    --panel: #fff; --panel-border: #acacac; --panel-shadow: none; --radius: 4px;
-    --btn: linear-gradient(180deg, #e0620f, #c64d04);
-    --btn-ink: #fff; --btn-border: #a84203; --btn-radius: 4px; --btn-shadow: none;
-    --btn2: #fff; --btn2-ink: #0a5a83; --btn2-border: #acacac;
-    --key: #e4edf2; --key-ink: #0a5a83;
-    --key-on: linear-gradient(180deg, #e0620f, #c64d04); --key-on-ink: #fff; --key-on-shadow: none;
-    --well: #fff; --well-ink: #222; --well-border: #acacac; --placeholder: #767676;
-    --well-shadow: inset 0 1px 2px rgba(0,0,0,.12);
-    --dial: #f3f7fa; --dial-label: #0a5a83; --dial-value: #c64d04; --dial-glow: none;
-    --dial-font: Ubuntu, Arial, Helvetica, sans-serif;
-    --box: #fff; --box-border: #c9c9c9; --box-shadow: none; --row-line: #e6e6e6;
-    --accent: #0a5a83; --amount: #c64d04;
-    --bad: #b3261e;
+    --font: Ubuntu, "Helvetica Neue", Arial, Helvetica, sans-serif;
+    --page: #18222d;
+    --bar: #1c2a38; --bar-line: #2a3947; --bar-soft: #c9d1d9;
+    --title: linear-gradient(#f47321, #f47321); --title-filter: none;
+    --ink: #fff; --ink-soft: #aeb9c4; --name-ink: #5bb0e8; --user-ink: #6ea4ff; --box-title: #f47321;
+    --panel: #1e2c3a; --panel-border: #2e3d4d; --panel-shadow: none; --radius: 6px;
+    --btn: #e8650f; --btn-ink: #fff; --btn-border: #e8650f; --btn-radius: 999px; --btn-shadow: none;
+    --btn2: transparent; --btn2-ink: #f58a45; --btn2-border: #f47321;
+    --key: #151e27; --key-ink: #c9d1d9;
+    --key-on: #e8650f; --key-on-ink: #fff; --key-on-shadow: none;
+    --well: #151e27; --well-ink: #fff; --well-border: #33414f; --placeholder: #8c9aa8;
+    --well-shadow: none;
+    --dial: #151e27; --dial-label: #c9d1d9; --dial-value: #f58a45; --dial-glow: none;
+    --dial-font: Ubuntu, "Helvetica Neue", Arial, Helvetica, sans-serif;
+    --box: #18222d; --box-border: #2e3d4d; --box-shadow: none; --row-line: rgba(255,255,255,.06);
+    --accent: #5bb0e8;
+    --amount: #000; --amount-bg: #ffff33; --amount-pad: 1px 7px; --amount-radius: 3px;
+    --off: #6f7f8f; --bad: #ff8a7a;
   }
 
-  /* ---------- Stripchat: oscuro, tarjetas redondeadas, rojo y tokens dorados ---------- */
+  /* ---------- Stripchat: cabecera carmesí, paneles gris carbón redondeados, botón amarillo ---------- */
   :root[data-theme="stripchat"] {
-    --font: Roboto, "Helvetica Neue", Arial, system-ui, sans-serif;
-    --page: #18181a;
-    --bar: #232325; --bar-line: #a2252d; --bar-soft: #a6a6ad;
+    --font: Inter, Roboto, "Helvetica Neue", Arial, system-ui, sans-serif;
+    --page: #1d1d1f;
+    --bar: #a2262e; --bar-line: #a2262e; --bar-soft: #fff;
     --title: linear-gradient(#fff, #fff); --title-filter: none;
-    --ink: #f2f2f3; --ink-soft: #a6a6ad; --name-ink: #f2f2f3;
-    --panel: #2b2b2e; --panel-border: #38383c; --panel-shadow: 0 6px 18px -8px rgba(0,0,0,.6); --radius: 14px;
-    --btn: #a2252d; --btn-ink: #fff; --btn-border: #a2252d; --btn-radius: 999px; --btn-shadow: none;
-    --btn2: transparent; --btn2-ink: #d0d0d4; --btn2-border: #55555c;
-    --key: #38383c; --key-ink: #d0d0d4;
-    --key-on: #a2252d; --key-on-ink: #fff; --key-on-shadow: none;
-    --well: #1b1b1d; --well-ink: #f2f2f3; --well-border: #3f3f44; --placeholder: #8a8a91;
+    --ink: #fff; --ink-soft: #a8a8ae; --name-ink: #fff; --user-ink: #ee6fe6;
+    --panel: #2e2e31; --panel-border: #2e2e31; --panel-shadow: none; --radius: 14px;
+    --btn: #f8b90c; --btn-ink: #1a1a1a; --btn-border: #f8b90c; --btn-radius: 999px; --btn-shadow: none;
+    --btn2: transparent; --btn2-ink: #fff; --btn2-border: rgba(255,255,255,.75);
+    --key: #3a3a3d; --key-ink: #d6d6da;
+    --key-on: #a2262e; --key-on-ink: #fff; --key-on-shadow: none;
+    --well: #232325; --well-ink: #fff; --well-border: #232325; --placeholder: #9a9aa0;
     --well-shadow: none;
-    --dial: #1f1f21; --dial-label: #a6a6ad; --dial-value: #fff; --dial-glow: none;
-    --dial-font: Roboto, "Helvetica Neue", Arial, system-ui, sans-serif;
-    --box: #232325; --box-border: #38383c; --box-shadow: none; --row-line: rgba(255,255,255,.07);
-    --accent: #e8616b; --amount: #f5c451;
-    --off: #6d6d75; --bad: #ff8073;
+    --dial: #262628; --dial-label: #a8a8ae; --dial-value: #fff; --dial-glow: none;
+    --dial-font: Inter, Roboto, "Helvetica Neue", Arial, system-ui, sans-serif;
+    --box: #262628; --box-border: #3a3a3d; --box-shadow: none; --row-line: rgba(255,255,255,.07);
+    --accent: #ff7a84; --amount: #f8b90c;
+    --live: #8ad62c; --off: #77777e; --bad: #ff8a7a;
   }
 
   * { box-sizing: border-box; }
@@ -174,15 +176,17 @@
   }
   .box h3 {
     margin: 0; padding: 8px 12px; font-size: 12px; letter-spacing: .1em; text-transform: uppercase;
-    color: var(--ink-soft); border-bottom: 1px solid var(--box-border);
+    color: var(--box-title); border-bottom: 1px solid var(--box-border);
     display: flex; justify-content: space-between; gap: 8px;
   }
-  .box h3 span { letter-spacing: 0; text-transform: none; font-weight: 500; }
+  .box h3 span { letter-spacing: 0; text-transform: none; font-weight: 500; color: var(--ink-soft); }
   .box ul { list-style: none; margin: 0; padding: 4px 0; max-height: 230px; overflow-y: auto; }
   .box li { padding: 5px 12px; display: flex; gap: 8px; align-items: baseline; }
   .box li + li { border-top: 1px solid var(--row-line); }
-  .box .u { font-weight: 600; overflow-wrap: anywhere; min-width: 0; }
-  .box .amt { margin-left: auto; font-weight: 800; color: var(--amount); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .box .u { font-weight: 600; overflow-wrap: anywhere; min-width: 0; color: var(--user-ink); }
+  .box .amt { margin-left: auto; font-weight: 800; color: var(--amount); background: var(--amount-bg);
+    padding: var(--amount-pad); border-radius: var(--amount-radius); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .box .amt.none { background: none; padding: 0; color: var(--ink-soft); font-weight: 500; }
   .box .sub { color: var(--ink-soft); font-size: 12px; white-space: nowrap; }
   .box .note { padding: 10px 12px; color: var(--ink-soft); font-size: 13px; }
   .foot { margin: 10px 2px 0; color: var(--ink-soft); font-size: 12px; }
@@ -497,7 +501,7 @@ function draw(name) {
       for (const u of data.users) {
         const li = el('li');
         li.append(el('span', 'u', u.username),
-                  el('span', 'amt', u.day ? nf.format(u.day) + ' tk' : '—'),
+                  el('span', u.day ? 'amt' : 'amt none', u.day ? nf.format(u.day) + ' tk' : '—'),
                   el('span', 'sub', nf.format(u.all_time) + ' tk'));
         ul.append(li);
       }
