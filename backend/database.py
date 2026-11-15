@@ -2,9 +2,7 @@ import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 
-from .config import Config
-
-DB_PATH = Path(__file__).resolve().parent.parent / "database" / f"{Config.APP}.db"
+DB_PATH = Path(__file__).resolve().parent.parent / "database" / "app.db"
 
 SESSION_FIELDS = (
     "sid", "install_id", "state", "verifier", "account_id", "account_name",
@@ -45,8 +43,9 @@ def initialize_database():
         connection.execute("""
             CREATE TABLE IF NOT EXISTS follows (
                 account_id TEXT NOT NULL,
+                site TEXT NOT NULL,
                 username TEXT NOT NULL,
-                PRIMARY KEY (account_id, username)
+                PRIMARY KEY (account_id, site, username)
             )
         """)
 
@@ -88,23 +87,24 @@ def delete_session(sid):
 def list_follows(account_id):
     with connect() as connection:
         rows = connection.execute(
-            "SELECT username FROM follows WHERE account_id = ? ORDER BY username COLLATE NOCASE",
+            "SELECT site, username FROM follows WHERE account_id = ? "
+            "ORDER BY username COLLATE NOCASE",
             (account_id,),
         ).fetchall()
-    return [row["username"] for row in rows]
+    return [{"site": row["site"], "username": row["username"]} for row in rows]
 
 
-def add_follow(account_id, username):
+def add_follow(account_id, site, username):
     with connect() as connection:
         connection.execute(
-            "INSERT OR IGNORE INTO follows (account_id, username) VALUES (?, ?)",
-            (account_id, username),
+            "INSERT OR IGNORE INTO follows (account_id, site, username) VALUES (?, ?, ?)",
+            (account_id, site, username),
         )
 
 
-def remove_follow(account_id, username):
+def remove_follow(account_id, site, username):
     with connect() as connection:
         connection.execute(
-            "DELETE FROM follows WHERE account_id = ? AND username = ?",
-            (account_id, username),
+            "DELETE FROM follows WHERE account_id = ? AND site = ? AND username = ?",
+            (account_id, site, username),
         )

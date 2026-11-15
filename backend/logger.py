@@ -11,7 +11,7 @@ logging.basicConfig(
     handlers=[RichHandler(console=console)]
 )
 
-logger = logging.getLogger("StripWatch")
+logger = logging.getLogger("app")
 
 # httpx anota cada petición; con consultas cada pocos segundos es solo ruido.
 logging.getLogger("httpx").setLevel(logging.WARNING)

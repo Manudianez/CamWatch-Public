@@ -1,6 +1,7 @@
-"""Servidor web de StripWatch y ChaturWatch.  Arranque:  python -m backend.server"""
+"""Servidor web.  Arranque:  python -m backend.server"""
 
 import asyncio
+import html
 import os
 import time
 from contextlib import asynccontextmanager
@@ -13,19 +14,18 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel
 
 from . import database as db
-from .config import Config
+from .config import SITES, Config
 from .logger import logger
 from .statbate import (
     PlanRequired, RateLimited, SignInRequired, StatbateClient,
-    authorize_url, clean_username, new_secret,
+    authorize_url, clean_username, new_secret, site_in_link,
 )
 
 APP_DIR = Path(__file__).resolve().parent.parent / "app"
 SECURE = Config.PUBLIC_URL.startswith("https://")
 YEAR = 365 * 24 * 3600
-# Las cookies de localhost se comparten entre puertos: cada app usa las suyas.
-COOKIE_SESSION = f"{Config.APP}_session"
-COOKIE_INSTALL = f"{Config.APP}_install"
+COOKIE_SESSION = "cw_session"
+COOKIE_INSTALL = "cw_install"
 
 statbate = StatbateClient()
 refresh_locks = {}   # sid -> candado: una sola renovación en curso por sesión
@@ -102,10 +102,7 @@ async def call(session, method, *args):
 @app.get("/", response_class=HTMLResponse)
 def index():
     page = (APP_DIR / "index.html").read_text(encoding="utf-8")
-    for key, value in (("APP_NAME", Config.APP_NAME), ("PLATFORM", Config.PLATFORM),
-                       ("MODEL_URL", Config.MODEL_URL), ("ACCENT", Config.ACCENT)):
-        page = page.replace("{{" + key + "}}", value)
-    return page
+    return page.replace("{{APP_NAME}}", html.escape(Config.APP_NAME))
 
 
 @app.get("/oauth/statbate/login")
@@ -159,7 +156,8 @@ async def logout(request: Request):
 
 @app.get("/api/session")
 async def session_info(request: Request):
-    base = {"configured": bool(Config.STATBATE_CLIENT_ID), "logged_in": False}
+    base = {"configured": bool(Config.STATBATE_CLIENT_ID), "logged_in": False,
+            "sites": [dict(id=site, **info) for site, info in SITES.items()]}
     session = db.get_session(request.cookies.get(COOKIE_SESSION))
     if not session or not session.get("refresh_token"):
         return base
@@ -172,7 +170,7 @@ async def session_info(request: Request):
         info = {}
     plan = info.get("plan") or {}
     return {
-        "configured": True,
+        **base,
         "logged_in": True,
         "name": (info.get("account") or {}).get("name") or session.get("account_name"),
         "plan": {k: plan.get(k) for k in ("title", "is_trial", "expires_on")},
@@ -184,50 +182,62 @@ async def session_info(request: Request):
 
 
 class NewModel(BaseModel):
+    site: str
     username: str
+
+
+def known_site(site):
+    if site not in SITES:
+        raise HTTPException(404, "Plataforma desconocida.")
+    return site
 
 
 @app.post("/api/models")
 async def add_model(body: NewModel, request: Request):
     session = signed_in(request)
+    # Un enlace pegado manda sobre la plataforma elegida en pantalla.
+    site = site_in_link(body.username) or known_site(body.site)
+    label = SITES[site]["label"]
     username = clean_username(body.username)
     if not username:
-        raise HTTPException(400, f"Nombre no válido. Usa el nombre tal como sale en la URL de {Config.PLATFORM}.")
-    follows = db.list_follows(session["account_id"])
+        raise HTTPException(400, f"Nombre no válido. Usa el nombre tal como sale en la URL de {label}.")
+    if site == "chaturbate":
+        username = username.lower()   # en Chaturbate los nombres van siempre en minúsculas
+    follows = [f["username"] for f in db.list_follows(session["account_id"]) if f["site"] == site]
     existing = next((n for n in follows if n.lower() == username.lower()), None)
     if existing:
-        raise HTTPException(409, f"Ya estás siguiendo a {existing}.")
+        raise HTTPException(409, f"Ya estás siguiendo a {existing} en {label}.")
     if len(follows) >= Config.MAX_FOLLOWS:
-        raise HTTPException(409, f"Puedes seguir hasta {Config.MAX_FOLLOWS} modelos a la vez.")
-    db.add_follow(session["account_id"], username)
-    return {"username": username}
+        raise HTTPException(409, f"Puedes seguir hasta {Config.MAX_FOLLOWS} modelos de {label} a la vez.")
+    db.add_follow(session["account_id"], site, username)
+    return {"site": site, "username": username}
 
 
-@app.delete("/api/models/{username}")
-async def remove_model(username: str, request: Request):
+@app.delete("/api/models/{site}/{username}")
+async def remove_model(site: str, username: str, request: Request):
     session = signed_in(request)
-    db.remove_follow(session["account_id"], username)
-    room_cache.pop((session["account_id"], username), None)
+    db.remove_follow(session["account_id"], site, username)
+    room_cache.pop((session["account_id"], site, username), None)
     return {"ok": True}
 
 
-@app.get("/api/room/{username}")
-async def room(username: str, request: Request):
+@app.get("/api/room/{site}/{username}")
+async def room(site: str, username: str, request: Request):
     session = signed_in(request)
-    if username not in db.list_follows(session["account_id"]):
+    if {"site": site, "username": username} not in db.list_follows(session["account_id"]):
         raise HTTPException(404, "No sigues a esta modelo.")
-    key = (session["account_id"], username)
+    key = (session["account_id"], site, username)
     cached = room_cache.get(key)
     if cached and time.time() - cached[0] < Config.ROOM_CACHE_SECONDS:
         return cached[1]
     try:
-        data = await call(session, statbate.room, username)
+        data = await call(session, statbate.room, site, username)
     except PlanRequired:
         raise HTTPException(403, "Tu plan de Statbate no incluye esta consulta.")
     except RateLimited:
         raise HTTPException(429, "Statbate pide ir más despacio. Se reintentará enseguida.")
     except (httpx.HTTPError, ValueError) as problem:
-        logger.warning(f"{username}: {problem!r}")
+        logger.warning(f"{site}/{username}: {problem!r}")
         raise HTTPException(502, "No se pudo consultar Statbate.")
     data["checked_at"] = time.time()
     room_cache[key] = (time.time(), data)
@@ -239,7 +249,7 @@ def main():
     uvicorn.run(
         app,
         host=os.getenv("HOST", "127.0.0.1"),
-        port=int(os.getenv("PORT", str(Config.PORT) if cert else "8000")),
+        port=int(os.getenv("PORT", "8443" if cert else "8000")),
         ssl_certfile=cert, ssl_keyfile=key,
     )
 

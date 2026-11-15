@@ -3,47 +3,29 @@ import os
 
 load_dotenv()
 
-
-# El mismo código sirve dos apps; APP elige cuál arranca.
-APPS = {
-    "stripwatch": {
-        "name": "StripWatch", "site": "stripchat", "platform": "Stripchat",
-        "model_url": "https://stripchat.com/", "accent": "#1f6fa8", "port": 8443,
-    },
-    "chaturwatch": {
-        "name": "ChaturWatch", "site": "chaturbate", "platform": "Chaturbate",
-        "model_url": "https://chaturbate.com/", "accent": "#a8591f", "port": 8444,
-    },
+# Plataformas entre las que se puede elegir. La clave es el nombre que usa Statbate.
+SITES = {
+    "stripchat": {"label": "Stripchat", "url": "https://stripchat.com/", "accent": "#1f6fa8"},
+    "chaturbate": {"label": "Chaturbate", "url": "https://chaturbate.com/", "accent": "#a8591f"},
 }
-
-APP = os.getenv("APP", "stripwatch").strip().lower()
-if APP not in APPS:
-    raise SystemExit(f"APP debe ser una de: {', '.join(APPS)}")
-_app = APPS[APP]
 
 
 class Config:
-    APP = APP
-    APP_NAME = _app["name"]
-    SITE = _app["site"]             # nombre de la plataforma en la API de Statbate
-    PLATFORM = _app["platform"]
-    MODEL_URL = _app["model_url"]
-    ACCENT = _app["accent"]
-    PORT = _app["port"]
-    VERSION = "0.3.0"
+    # Nombre provisional: cámbialo aquí o con APP_NAME en .env.
+    APP_NAME = os.getenv("APP_NAME", "CamWatch")
+    VERSION = "0.4.0"
 
     DEBUG = os.getenv("DEBUG", "False") == "True"
 
     # Dirección pública de la app. Debe ser HTTPS: Statbate no acepta otra cosa.
-    PUBLIC_URL = os.getenv("PUBLIC_URL", f"https://localhost:{_app['port']}").rstrip("/")
+    PUBLIC_URL = os.getenv("PUBLIC_URL", "https://localhost:8443").rstrip("/")
 
     # Identificador que entrega Statbate al registrar la aplicación.
-    # Cada app se registra por separado: STRIPWATCH_CLIENT_ID / CHATURWATCH_CLIENT_ID.
-    STATBATE_CLIENT_ID = os.getenv(f"{APP.upper()}_CLIENT_ID") or os.getenv("STATBATE_CLIENT_ID", "")
+    STATBATE_CLIENT_ID = os.getenv("STATBATE_CLIENT_ID", "")
     STATBATE_BASE = os.getenv("STATBATE_BASE", "https://plus.statbate.com").rstrip("/")
 
     REDIRECT_URI = PUBLIC_URL + "/oauth/statbate/callback"
     SCOPES = "profile members:read"
 
-    MAX_FOLLOWS = 10          # modelos por cuenta
+    MAX_FOLLOWS = 10          # modelos por cuenta y plataforma
     ROOM_CACHE_SECONDS = 45   # Statbate refresca cada sala una vez por minuto

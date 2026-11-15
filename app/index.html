@@ -15,7 +15,7 @@
     --ink-soft: #4d5661;
     --well: #12171c;
     --well-text: #d9f2ff;
-    --accent: {{ACCENT}};
+    --accent: #1f6fa8;
     --live: #1fb866;
     --busy: #e2a11a;
     --off: #7d8590;
@@ -141,6 +141,21 @@
     .dial .value { font-size: 21px; }
     .dial .label { font-size: 10px; letter-spacing: .04em; }
   }
+  /* selector de plataforma: dos teclas de acero, la elegida queda hundida */
+  .switch { display: flex; gap: 0; margin-bottom: 14px; padding: 6px; }
+  .switch button {
+    flex: 1; border-radius: 0; font-size: 16px; padding: 12px 10px; color: var(--ink-soft);
+    display: flex; align-items: center; justify-content: center; gap: 9px;
+  }
+  .switch button:first-child { border-radius: 7px 0 0 7px; }
+  .switch button:last-child { border-radius: 0 7px 7px 0; border-left: 0; }
+  .switch button[aria-pressed="true"] {
+    color: var(--ink);
+    background: linear-gradient(180deg, #aeb5bd 0%, #c9ced4 50%, #dfe3e7 100%);
+    box-shadow: inset 0 2px 5px rgba(0,0,0,.4);
+  }
+  .switch .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--off); box-shadow: 0 0 0 1px rgba(0,0,0,.35); }
+  .switch button[aria-pressed="true"] .dot { background: var(--accent); box-shadow: 0 0 0 1px rgba(0,0,0,.3), 0 0 8px 1px var(--accent); }
   .login { padding: 34px 22px; text-align: center; }
   .login h2 { margin: 0 0 8px; font-size: 22px; }
   .login p { margin: 0 auto 18px; max-width: 520px; color: var(--ink-soft); }
@@ -162,7 +177,7 @@
 <div class="wrap">
   <header>
     <h1>{{APP_NAME}}</h1>
-    <span class="tag">Contador en vivo de {{PLATFORM}}</span>
+    <span class="tag">Contador en vivo de Stripchat y Chaturbate</span>
     <span id="user"></span>
   </header>
   <div id="main"></div>
@@ -174,6 +189,8 @@ const nf = new Intl.NumberFormat('es-ES');
 const REFRESH_MS = 60000;
 const rooms = new Map();   // modelo -> { el, data, error, timer }
 let session = null;
+let site = null;       // plataforma elegida
+let input = null;
 let cards = null;
 let msg = null;
 
@@ -216,7 +233,7 @@ function showLogin() {
   const box = el('section', 'login plate');
   box.append(el('h2', null, 'Sigue a tus modelos en vivo'));
   box.append(el('p', null,
-    'Mira si están en línea, quién está en la sala y cuántos tokens han dado. ' +
+    'Elige Stripchat o Chaturbate y mira si están en línea, quién está en la sala y cuántos tokens han dado. ' +
     'Los datos vienen de Statbate: entra con tu cuenta para verlos.'));
   const error = new URLSearchParams(location.search).get('error');
   if (error && LOGIN_ERRORS[error]) {
@@ -245,11 +262,22 @@ function showApp() {
   out.onclick = async () => { await fetch('/api/logout', { method: 'POST' }); location.href = '/'; };
   user.replaceChildren(who, out);
 
+  const picker = el('div', 'switch plate');
+  picker.setAttribute('role', 'group');
+  picker.setAttribute('aria-label', 'Plataforma');
+  for (const info of session.sites) {
+    const key = el('button');
+    key.type = 'button';
+    key.dataset.site = info.id;
+    key.append(el('span', 'dot'), el('span', null, info.label));
+    key.onclick = () => selectSite(info.id);
+    picker.append(key);
+  }
+
   const form = el('form', 'add plate');
   form.autocomplete = 'off';
-  const input = el('input');
+  input = el('input');
   input.name = 'username';
-  input.placeholder = 'Nombre de la modelo o enlace de {{PLATFORM}}';
   input.setAttribute('aria-label', 'Nombre de la modelo');
   input.autocapitalize = 'off'; input.spellcheck = false;
   const button = el('button', null, 'Seguir');
@@ -272,7 +300,7 @@ function showApp() {
     parts.push(el('div', 'notice plate',
       'Estás en periodo de prueba hasta el ' + new Date(session.plan.expires_on).toLocaleDateString('es-ES') + '.'));
   }
-  parts.push(form, msg, cards);
+  parts.push(picker, form, msg, cards);
   main.replaceChildren(...parts);
 
   form.addEventListener('submit', async (event) => {
@@ -283,18 +311,39 @@ function showApp() {
       const added = await api('/api/models', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: input.value }),
+        body: JSON.stringify({ site, username: input.value }),
       });
       input.value = '';
-      follow(added.username);
+      session.follows.push(added);
+      // un enlace pegado puede ser de la otra plataforma: se cambia a ella
+      if (added.site !== site) selectSite(added.site); else follow(added.username);
     } catch (error) {
       msg.textContent = error.message;
     }
   });
 
-  session.follows.forEach(follow);
-  renderEmpty();
+  let saved = null;
+  try { saved = localStorage.getItem('site'); } catch (e) {}
+  selectSite(session.sites.some(s => s.id === saved) ? saved : session.sites[0].id);
   setInterval(() => rooms.forEach((room, name) => draw(name)), 30000);  // «hace X min»
+}
+
+function siteInfo() { return session.sites.find(s => s.id === site); }
+
+function selectSite(id) {
+  site = id;
+  try { localStorage.setItem('site', id); } catch (e) {}
+  const info = siteInfo();
+  document.documentElement.style.setProperty('--accent', info.accent);
+  document.querySelectorAll('.switch button').forEach(key =>
+    key.setAttribute('aria-pressed', String(key.dataset.site === id)));
+  input.placeholder = 'Nombre de la modelo o enlace de ' + info.label;
+  msg.textContent = '';
+  rooms.forEach(room => clearInterval(room.timer));
+  rooms.clear();
+  cards.replaceChildren();
+  session.follows.filter(f => f.site === id).forEach(f => follow(f.username));
+  renderEmpty();
 }
 
 function renderEmpty() {
@@ -302,7 +351,7 @@ function renderEmpty() {
   if (rooms.size) { if (note) note.remove(); return; }
   if (note) return;
   const e = el('div', 'empty plate'); e.id = 'empty';
-  e.append(el('b', null, 'Todavía no sigues a nadie'),
+  e.append(el('b', null, 'Todavía no sigues a nadie en ' + siteInfo().label),
            document.createTextNode('Escribe arriba el nombre de una modelo y pulsa «Seguir».'));
   cards.append(e);
 }
@@ -322,8 +371,11 @@ function follow(name) {
 
 async function unfollow(name) {
   const room = rooms.get(name);
-  try { await api('/api/models/' + encodeURIComponent(name), { method: 'DELETE' }); }
+  const from = site;
+  try { await api('/api/models/' + from + '/' + encodeURIComponent(name), { method: 'DELETE' }); }
   catch (error) { msg.textContent = error.message; return; }
+  session.follows = session.follows.filter(f => !(f.site === from && f.username === name));
+  if (rooms.get(name) !== room) return;
   clearInterval(room.timer);
   room.el.remove();
   rooms.delete(name);
@@ -334,7 +386,7 @@ async function load(name) {
   const room = rooms.get(name);
   if (!room) return;
   try {
-    room.data = await api('/api/room/' + encodeURIComponent(name));
+    room.data = await api('/api/room/' + site + '/' + encodeURIComponent(name));
     room.error = null;
   } catch (error) {
     if (error.message === '401') return;
@@ -359,7 +411,7 @@ function draw(name) {
   const who = el('div', 'who');
   const title = el('div', 'name');
   const link = el('a', null, name);
-  link.href = '{{MODEL_URL}}' + encodeURIComponent(name);
+  link.href = siteInfo().url + encodeURIComponent(name);
   link.target = '_blank'; link.rel = 'noopener noreferrer';
   title.append(link);
   const status = el('div', 'status');

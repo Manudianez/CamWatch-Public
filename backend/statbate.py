@@ -11,7 +11,7 @@ from urllib.parse import urlencode
 
 import httpx
 
-from .config import Config
+from .config import SITES, Config
 
 USERNAME_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
@@ -28,9 +28,15 @@ class RateLimited(Exception):
     pass
 
 
+def site_in_link(text):
+    """Si el texto es un enlace a una de las plataformas, dice a cuál."""
+    lowered = (text or "").lower()
+    return next((site for site in SITES if f"{site}.com/" in lowered), None)
+
+
 def clean_username(text):
     """Acepta un nombre o un enlace a su sala y devuelve el nombre, o None."""
-    text = (text or "").strip().split("?")[0].rstrip("/")
+    text = (text or "").strip().split("?")[0].split("#")[0].rstrip("/")
     if "/" in text:
         text = text.rsplit("/", 1)[1]
     text = text.lstrip("@")
@@ -137,10 +143,10 @@ class StatbateClient:
         response.raise_for_status()
         return response.json()
 
-    async def room(self, access_token, username):
+    async def room(self, access_token, site, username):
         """Espectadores de una sala y lo que ha dado cada uno."""
         response = await self._get(
-            access_token, f"/api/room/{Config.SITE}/{username}/online-users"
+            access_token, f"/api/room/{site}/{username}/online-users"
         )
         if response.status_code == 404:  # desconectada o inexistente
             return {"username": username, "online": False, "viewers": 0,

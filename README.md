@@ -1,24 +1,12 @@
-# StripWatch y ChaturWatch
+# CamWatch (nombre provisional)
 
-Contadores en vivo de Stripchat (StripWatch) y Chaturbate (ChaturWatch). Entras con tu cuenta de Statbate, escribes el
-nombre de una modelo y ves si está en línea, quién está en la sala y cuántos
+Contador en vivo de Stripchat y Chaturbate. Entras con tu cuenta de Statbate,
+eliges la plataforma con el selector, escribes el nombre de una modelo y ves si está en línea, quién está en la sala y cuántos
 tokens ha dado cada espectador.
 
 Los datos vienen de [Statbate Plus](https://plus.statbate.com) mediante
 «Sign in with Statbate». Cada persona usa su propia cuenta y necesita un plan
 Simple Plus o Studio Plus para recibir datos.
-
-## Dos apps, un mismo código
-
-La variable `APP` elige cuál arranca:
-
-| App | Plataforma | Arranque | Dirección local |
-|---|---|---|---|
-| StripWatch | Stripchat | `python -m backend.server` | https://localhost:8443 |
-| ChaturWatch | Chaturbate | `APP=chaturwatch python -m backend.server` | https://localhost:8444 |
-
-Cada una tiene su propio registro en Statbate, su base de datos y sus sesiones,
-y pueden funcionar a la vez.
 
 ## Puesta en marcha
 
@@ -26,7 +14,7 @@ y pueden funcionar a la vez.
    [documentación](https://docs.statbate.com/docs/plus/integrations/sign-in-with-statbate/)):
    nombre del producto, direcciones de retorno y permisos `profile` y
    `members:read`. Te devuelven un `client_id`.
-2. **Configurar.** Copia `.env.example` como `.env` y pon el `client_id` de cada app.
+2. **Configurar.** Copia `.env.example` como `.env` y pon tu `client_id`.
 3. **Instalar y arrancar:**
 
    ```bash
@@ -41,15 +29,15 @@ certificado local con [mkcert](https://github.com/FiloSottile/mkcert):
 brew install mkcert && mkcert -install && mkcert localhost
 ```
 
-y abrir la dirección local de la app. La dirección de retorno a registrar es
+y abrir https://localhost:8443. La dirección de retorno a registrar es
 `PUBLIC_URL` + `/oauth/statbate/callback`.
 
 ## Estructura
 
 - `backend/statbate.py` — inicio de sesión (OAuth 2.0 con PKCE) y consultas a Statbate.
 - `backend/server.py` — servidor web (FastAPI): sesiones, modelos seguidas y salas.
-- `backend/database.py` — SQLite en `database/` (un archivo por app) (sesiones y modelos seguidas).
-- `backend/config.py` — configuración leída de `.env`.
+- `backend/database.py` — SQLite en `database/app.db` (sesiones y modelos seguidas).
+- `backend/config.py` — configuración leída de `.env`; aquí están el nombre de la app y las plataformas.
 - `app/index.html` — la interfaz.
 
 ## Límites
@@ -58,7 +46,7 @@ y abrir la dirección local de la app. La dirección de retorno a registrar es
 - Los tokens mostrados son los que han dado en esa sala los espectadores que
   están dentro en ese momento. No hay propinas una a una ni chat.
 - Una sala desconectada y un nombre que no existe se ven igual.
-- Cada cuenta puede seguir hasta 10 modelos.
+- Cada cuenta puede seguir hasta 10 modelos por plataforma.
 
 ## Privacidad
 
