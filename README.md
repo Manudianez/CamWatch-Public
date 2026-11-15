@@ -33,7 +33,9 @@ en tu propio ordenador funciona sin configurar nada más.
 2. **Instalar y arrancar:**
 
    ```bash
-   pip install -r requirements.txt
+   python3 -m venv .venv
+   source .venv/bin/activate
+   python -m pip install -r requirements.txt
    python -m backend.server
    ```
 
@@ -56,11 +58,15 @@ retorno pública y definir `PUBLIC_URL` (ver `.env.example`).
 
 ## Límites
 
-- Statbate refresca cada sala como mucho una vez por minuto: no es instantáneo.
-- Los tokens mostrados son los que han dado en esa sala los espectadores que
-  están dentro en ese momento, en la última hora y en la última semana.
-  Statbate no da el total diario de la sala, ni propinas una a una, ni chat.
-- Una sala desconectada y un nombre que no existe se ven igual.
+- Statbate refresca los datos de cada sala aproximadamente una vez por minuto.
+  Si falla una consulta o el estado queda sin confirmar, CamWatch reintenta
+  a los 15 segundos.
+- Los tokens de usuarios detectados corresponden a la última hora. En
+  Stripchat se muestra aparte una estimación de las propinas registradas por
+  Statbate durante la emisión. La aplicación no ofrece el detalle de cada
+  propina ni el historial de chat.
+- El estado y la última emisión se muestran según los datos disponibles
+  para cada sala.
 - Cada cuenta puede seguir hasta 10 modelos por plataforma.
 
 ## Privacidad
