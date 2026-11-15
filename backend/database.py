@@ -2,7 +2,9 @@ import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 
-DB_PATH = Path(__file__).resolve().parent.parent / "database" / "stripwatch.db"
+from .config import Config
+
+DB_PATH = Path(__file__).resolve().parent.parent / "database" / f"{Config.APP}.db"
 
 SESSION_FIELDS = (
     "sid", "install_id", "state", "verifier", "account_id", "account_name",

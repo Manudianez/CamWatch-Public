@@ -29,7 +29,7 @@ class RateLimited(Exception):
 
 
 def clean_username(text):
-    """Acepta un nombre o un enlace de Stripchat y devuelve el nombre, o None."""
+    """Acepta un nombre o un enlace a su sala y devuelve el nombre, o None."""
     text = (text or "").strip().split("?")[0].rstrip("/")
     if "/" in text:
         text = text.rsplit("/", 1)[1]
@@ -138,9 +138,9 @@ class StatbateClient:
         return response.json()
 
     async def room(self, access_token, username):
-        """Espectadores de una sala de Stripchat y lo que ha dado cada uno."""
+        """Espectadores de una sala y lo que ha dado cada uno."""
         response = await self._get(
-            access_token, f"/api/room/stripchat/{username}/online-users"
+            access_token, f"/api/room/{Config.SITE}/{username}/online-users"
         )
         if response.status_code == 404:  # desconectada o inexistente
             return {"username": username, "online": False, "viewers": 0,

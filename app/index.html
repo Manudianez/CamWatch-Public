@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>StripWatch</title>
+<title>{{APP_NAME}}</title>
 <style>
   :root {
     --steel-hi: #f7f9fb;
@@ -15,7 +15,7 @@
     --ink-soft: #4d5661;
     --well: #12171c;
     --well-text: #d9f2ff;
-    --accent: #1f6fa8;
+    --accent: {{ACCENT}};
     --live: #1fb866;
     --busy: #e2a11a;
     --off: #7d8590;
@@ -161,8 +161,8 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>StripWatch</h1>
-    <span class="tag">Contador en vivo de Stripchat</span>
+    <h1>{{APP_NAME}}</h1>
+    <span class="tag">Contador en vivo de {{PLATFORM}}</span>
     <span id="user"></span>
   </header>
   <div id="main"></div>
@@ -209,7 +209,7 @@ const LOGIN_ERRORS = {
   denied: 'No se completó el inicio de sesión en Statbate.',
   state: 'El inicio de sesión caducó. Inténtalo de nuevo.',
   signin: 'Statbate no aceptó el inicio de sesión. Inténtalo de nuevo.',
-  config: 'StripWatch todavía no está registrado en Statbate.',
+  config: '{{APP_NAME}} todavía no está registrado en Statbate.',
 };
 
 function showLogin() {
@@ -230,7 +230,7 @@ function showLogin() {
     const go = el('a', 'go', 'Entrar con Statbate');
     go.href = '/oauth/statbate/login';
     box.append(go);
-    box.append(el('small', null, 'Necesitas una cuenta de Statbate con plan Simple Plus o Studio Plus. StripWatch nunca ve tu contraseña.'));
+    box.append(el('small', null, 'Necesitas una cuenta de Statbate con plan Simple Plus o Studio Plus. {{APP_NAME}} nunca ve tu contraseña.'));
   } else {
     box.append(el('small', null, 'Falta configurar STATBATE_CLIENT_ID en el servidor.'));
   }
@@ -249,7 +249,7 @@ function showApp() {
   form.autocomplete = 'off';
   const input = el('input');
   input.name = 'username';
-  input.placeholder = 'Nombre de la modelo o enlace de Stripchat';
+  input.placeholder = 'Nombre de la modelo o enlace de {{PLATFORM}}';
   input.setAttribute('aria-label', 'Nombre de la modelo');
   input.autocapitalize = 'off'; input.spellcheck = false;
   const button = el('button', null, 'Seguir');
@@ -359,7 +359,7 @@ function draw(name) {
   const who = el('div', 'who');
   const title = el('div', 'name');
   const link = el('a', null, name);
-  link.href = 'https://stripchat.com/' + encodeURIComponent(name);
+  link.href = '{{MODEL_URL}}' + encodeURIComponent(name);
   link.target = '_blank'; link.rel = 'noopener noreferrer';
   title.append(link);
   const status = el('div', 'status');
@@ -422,7 +422,7 @@ function draw(name) {
   try {
     session = await api('/api/session');
   } catch (error) {
-    main.replaceChildren(el('div', 'empty plate', 'No se pudo conectar con StripWatch. Recarga la página.'));
+    main.replaceChildren(el('div', 'empty plate', 'No se pudo conectar con {{APP_NAME}}. Recarga la página.'));
     return;
   }
   if (session.logged_in) showApp(); else showLogin();

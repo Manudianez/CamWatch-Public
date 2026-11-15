@@ -1,4 +1,4 @@
-"""Servidor web de StripWatch.  Arranque:  python -m backend.server"""
+"""Servidor web de StripWatch y ChaturWatch.  Arranque:  python -m backend.server"""
 
 import asyncio
 import os
@@ -9,7 +9,7 @@ from pathlib import Path
 import httpx
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel
 
 from . import database as db
@@ -23,6 +23,9 @@ from .statbate import (
 APP_DIR = Path(__file__).resolve().parent.parent / "app"
 SECURE = Config.PUBLIC_URL.startswith("https://")
 YEAR = 365 * 24 * 3600
+# Las cookies de localhost se comparten entre puertos: cada app usa las suyas.
+COOKIE_SESSION = f"{Config.APP}_session"
+COOKIE_INSTALL = f"{Config.APP}_install"
 
 statbate = StatbateClient()
 refresh_locks = {}   # sid -> candado: una sola renovación en curso por sesión
@@ -47,7 +50,7 @@ def set_cookie(response, name, value, max_age):
 
 
 def signed_in(request):
-    session = db.get_session(request.cookies.get("sw_session"))
+    session = db.get_session(request.cookies.get(COOKIE_SESSION))
     if not session or not session.get("refresh_token"):
         raise HTTPException(401, "Inicia sesión con Statbate.")
     return session
@@ -96,30 +99,34 @@ async def call(session, method, *args):
 
 # ---------- páginas e inicio de sesión ----------
 
-@app.get("/")
+@app.get("/", response_class=HTMLResponse)
 def index():
-    return FileResponse(APP_DIR / "index.html")
+    page = (APP_DIR / "index.html").read_text(encoding="utf-8")
+    for key, value in (("APP_NAME", Config.APP_NAME), ("PLATFORM", Config.PLATFORM),
+                       ("MODEL_URL", Config.MODEL_URL), ("ACCENT", Config.ACCENT)):
+        page = page.replace("{{" + key + "}}", value)
+    return page
 
 
 @app.get("/oauth/statbate/login")
 def login(request: Request):
     if not Config.STATBATE_CLIENT_ID:
         return RedirectResponse("/?error=config", 303)
-    install_id = request.cookies.get("sw_install") or new_secret(24)
-    session = db.get_session(request.cookies.get("sw_session")) or {"sid": new_secret(32)}
+    install_id = request.cookies.get(COOKIE_INSTALL) or new_secret(24)
+    session = db.get_session(request.cookies.get(COOKIE_SESSION)) or {"sid": new_secret(32)}
     session.update(install_id=install_id, state=new_secret(24), verifier=new_secret(64))
     db.save_session(session)
     response = RedirectResponse(
         authorize_url(session["state"], session["verifier"], install_id), 303
     )
-    set_cookie(response, "sw_session", session["sid"], YEAR)
-    set_cookie(response, "sw_install", install_id, YEAR)
+    set_cookie(response, COOKIE_SESSION, session["sid"], YEAR)
+    set_cookie(response, COOKIE_INSTALL, install_id, YEAR)
     return response
 
 
 @app.get("/oauth/statbate/callback")
 async def callback(request: Request, code: str = "", state: str = "", error: str = ""):
-    session = db.get_session(request.cookies.get("sw_session"))
+    session = db.get_session(request.cookies.get(COOKIE_SESSION))
     if error or not code:
         return RedirectResponse("/?error=denied", 303)
     if not session or not session.get("state") or state != session["state"]:
@@ -140,7 +147,7 @@ async def callback(request: Request, code: str = "", state: str = "", error: str
 
 @app.post("/api/logout")
 async def logout(request: Request):
-    session = db.get_session(request.cookies.get("sw_session"))
+    session = db.get_session(request.cookies.get(COOKIE_SESSION))
     if session:
         if session.get("refresh_token"):
             await statbate.revoke(session["refresh_token"])
@@ -153,7 +160,7 @@ async def logout(request: Request):
 @app.get("/api/session")
 async def session_info(request: Request):
     base = {"configured": bool(Config.STATBATE_CLIENT_ID), "logged_in": False}
-    session = db.get_session(request.cookies.get("sw_session"))
+    session = db.get_session(request.cookies.get(COOKIE_SESSION))
     if not session or not session.get("refresh_token"):
         return base
     try:
@@ -185,7 +192,7 @@ async def add_model(body: NewModel, request: Request):
     session = signed_in(request)
     username = clean_username(body.username)
     if not username:
-        raise HTTPException(400, "Nombre no válido. Usa el nombre tal como sale en la URL de Stripchat.")
+        raise HTTPException(400, f"Nombre no válido. Usa el nombre tal como sale en la URL de {Config.PLATFORM}.")
     follows = db.list_follows(session["account_id"])
     existing = next((n for n in follows if n.lower() == username.lower()), None)
     if existing:
@@ -232,7 +239,7 @@ def main():
     uvicorn.run(
         app,
         host=os.getenv("HOST", "127.0.0.1"),
-        port=int(os.getenv("PORT", "8443" if cert else "8000")),
+        port=int(os.getenv("PORT", str(Config.PORT) if cert else "8000")),
         ssl_certfile=cert, ssl_keyfile=key,
     )
 
