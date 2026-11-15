@@ -16,6 +16,29 @@ formas y tipografía); pulsar de nuevo la tecla elegida, o el título, vuelve al
 Los tres aspectos son variables CSS al principio de `app/index.html`. No se
 usan logotipos ni recursos de las plataformas.
 
+## Capturas
+
+### Stripchat
+
+![Ficha desplegada de Stripchat con indicadores de sala y nombres difuminados](docs/capturas/stripchat-sala.png)
+
+### Chaturbate
+
+![Ficha desplegada de Chaturbate con indicadores de sala y nombres difuminados](docs/capturas/chaturbate-sala.png)
+
+<details>
+<summary>Ver la pantalla de entrada y los paneles iniciales</summary>
+
+![Pantalla de entrada con el botón Entrar con Statbate](docs/capturas/inicio.png)
+
+![Selector de plataformas con acabado metálico](docs/capturas/plataformas.png)
+
+![Panel de Stripchat antes de seguir una sala](docs/capturas/stripchat-panel.png)
+
+![Panel de Chaturbate antes de seguir una sala](docs/capturas/chaturbate-panel.png)
+
+</details>
+
 ## Puesta en marcha
 
 La app está registrada en Statbate con el `client_id` `stripwatch` y la
