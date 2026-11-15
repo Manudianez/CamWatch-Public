@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StripWatch</title>
+<style>
+  :root {
+    --steel-hi: #f7f9fb;
+    --steel-1: #e4e8ec;
+    --steel-2: #c5cbd2;
+    --steel-3: #9aa2ab;
+    --steel-edge: #747c86;
+    --ink: #1c2229;
+    --ink-soft: #4d5661;
+    --well: #12171c;
+    --well-text: #d9f2ff;
+    --accent: #1f6fa8;
+    --live: #1fb866;
+    --busy: #e2a11a;
+    --off: #7d8590;
+    --bad: #c8402f;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    color: var(--ink);
+    font: 15px/1.45 "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+    /* acero cepillado: vetas finas horizontales sobre un degradado frío */
+    background:
+      repeating-linear-gradient(0deg, rgba(255,255,255,.05) 0 1px, rgba(0,0,0,.035) 1px 2px, transparent 2px 4px),
+      linear-gradient(115deg, #aeb5bd 0%, #dfe3e7 22%, #b9c0c8 45%, #e9ecef 63%, #a9b0b9 82%, #cfd4d9 100%);
+    background-attachment: fixed;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 28px 16px 56px; }
+
+  /* chapa pulida */
+  .plate {
+    background: linear-gradient(180deg, var(--steel-hi) 0%, var(--steel-1) 38%, var(--steel-2) 100%);
+    border: 1px solid var(--steel-edge);
+    border-radius: var(--radius);
+    box-shadow:
+      inset 0 1px 0 #fff,
+      inset 0 -1px 0 rgba(0,0,0,.18),
+      0 1px 2px rgba(0,0,0,.25),
+      0 10px 24px -10px rgba(20,30,40,.45);
+  }
+
+  header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 18px; }
+  h1 {
+    margin: 0; font-size: 30px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+    background: linear-gradient(180deg, #6b7480 0%, #2a3038 46%, #11161b 54%, #56606b 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 1px 0 rgba(255,255,255,.7));
+  }
+  .tag { color: var(--ink-soft); font-size: 13px; }
+  #pulse { margin-left: auto; font-size: 12px; color: var(--ink-soft); display: flex; align-items: center; gap: 6px; }
+
+  .add { display: flex; gap: 10px; padding: 14px; }
+  .add input {
+    flex: 1; min-width: 0; font: inherit; font-size: 16px; color: var(--well-text);
+    padding: 12px 14px; border-radius: 8px; border: 1px solid #05080a;
+    background: var(--well);
+    box-shadow: inset 0 2px 6px rgba(0,0,0,.8), 0 1px 0 rgba(255,255,255,.8);
+  }
+  .add input::placeholder { color: #6f8491; }
+  .add input:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button {
+    font: inherit; font-weight: 700; cursor: pointer; color: var(--ink);
+    padding: 12px 20px; border-radius: 8px; border: 1px solid var(--steel-edge);
+    background: linear-gradient(180deg, #fff 0%, #dde1e6 45%, #b4bbc3 55%, #cdd2d8 100%);
+    box-shadow: inset 0 1px 0 #fff, 0 1px 2px rgba(0,0,0,.3);
+  }
+  button:hover { filter: brightness(1.05); }
+  button:active { transform: translateY(1px); box-shadow: inset 0 2px 4px rgba(0,0,0,.35); }
+  #msg { min-height: 20px; margin: 8px 4px 14px; font-size: 13px; color: var(--bad); font-weight: 600; }
+
+  #cards { display: grid; gap: 18px; }
+  .card { padding: 16px; }
+  .head { display: flex; align-items: center; gap: 12px; }
+  .avatar {
+    width: 52px; height: 52px; border-radius: 50%; flex: none; object-fit: cover;
+    border: 2px solid #fff; box-shadow: 0 0 0 1px var(--steel-edge), 0 2px 5px rgba(0,0,0,.35);
+    background: linear-gradient(135deg, #cfd5db, #8d959f);
+  }
+  .who { min-width: 0; flex: 1; }
+  .name { font-size: 20px; font-weight: 800; overflow-wrap: anywhere; }
+  .name a { color: inherit; text-decoration: none; }
+  .name a:hover { text-decoration: underline; }
+  .status { display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--ink-soft); }
+  .led {
+    width: 11px; height: 11px; border-radius: 50%; flex: none; background: var(--off);
+    box-shadow: inset 0 1px 1px rgba(255,255,255,.6), 0 0 0 1px rgba(0,0,0,.35);
+  }
+  .led.live { background: var(--live); box-shadow: inset 0 1px 1px rgba(255,255,255,.7), 0 0 0 1px rgba(0,0,0,.3), 0 0 10px 2px rgba(31,184,102,.75); }
+  .led.busy { background: var(--busy); box-shadow: inset 0 1px 1px rgba(255,255,255,.7), 0 0 0 1px rgba(0,0,0,.3), 0 0 10px 2px rgba(226,161,26,.7); }
+  .led.bad  { background: var(--bad); }
+  .remove { padding: 8px 12px; font-weight: 600; font-size: 13px; }
+
+  .topic { margin: 10px 2px 0; color: var(--ink-soft); font-size: 13px; overflow-wrap: anywhere; }
+  .error { margin: 10px 2px 0; color: var(--bad); font-size: 13px; font-weight: 600; }
+
+  .dials { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 14px; }
+  .dial {
+    background: var(--well); border-radius: 8px; padding: 10px 12px; border: 1px solid #05080a;
+    box-shadow: inset 0 2px 8px rgba(0,0,0,.85), 0 1px 0 rgba(255,255,255,.85);
+  }
+  .dial .label { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: #8fa5b3; }
+  .dial .value {
+    font: 700 30px/1.15 ui-monospace, "SF Mono", Consolas, "Roboto Mono", monospace;
+    font-variant-numeric: tabular-nums; color: var(--well-text);
+    text-shadow: 0 0 10px rgba(120,205,255,.45);
+  }
+
+  .lists { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+  .box {
+    background: rgba(255,255,255,.55); border: 1px solid var(--steel-3); border-radius: 8px;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,.18); min-width: 0;
+  }
+  .box h3 {
+    margin: 0; padding: 8px 12px; font-size: 12px; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--ink-soft); border-bottom: 1px solid var(--steel-3);
+    display: flex; justify-content: space-between; gap: 8px;
+  }
+  .box h3 span { letter-spacing: 0; text-transform: none; font-weight: 500; }
+  .box ul { list-style: none; margin: 0; padding: 4px 0; max-height: 230px; overflow-y: auto; }
+  .box li { padding: 5px 12px; display: flex; gap: 8px; align-items: baseline; }
+  .box li + li { border-top: 1px solid rgba(0,0,0,.06); }
+  .box .u { font-weight: 600; overflow-wrap: anywhere; min-width: 0; }
+  .box .amt { margin-left: auto; font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .box .t { color: var(--ink-soft); font-size: 12px; white-space: nowrap; }
+  .box .note { padding: 10px 12px; color: var(--ink-soft); font-size: 13px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 12px; max-height: 230px; overflow-y: auto; }
+  .chip {
+    padding: 3px 10px; border-radius: 999px; font-size: 13px; font-weight: 600;
+    background: linear-gradient(180deg, #fff, #d3d8dd); border: 1px solid var(--steel-3);
+  }
+
+  .empty { padding: 34px 18px; text-align: center; color: var(--ink-soft); }
+  .empty b { display: block; color: var(--ink); font-size: 17px; margin-bottom: 4px; }
+
+  @media (max-width: 640px) {
+    h1 { font-size: 24px; }
+    .tag { display: none; }
+    .lists { grid-template-columns: 1fr; }
+    .dials { gap: 8px; }
+    .dial { padding: 8px; }
+    .dial .value { font-size: 21px; }
+    .dial .label { font-size: 10px; letter-spacing: .04em; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>StripWatch</h1>
+    <span class="tag">Contador en vivo de Stripchat</span>
+    <span id="pulse"><span class="led" id="pulse-led"></span><span id="pulse-text">Conectando…</span></span>
+  </header>
+
+  <form class="add plate" id="add-form" autocomplete="off">
+    <input id="username" name="username" placeholder="Nombre de la modelo o enlace de Stripchat" aria-label="Nombre de la modelo" autocapitalize="off" spellcheck="false">
+    <button type="submit">Seguir</button>
+  </form>
+  <div id="msg" role="alert"></div>
+
+  <div id="cards"></div>
+</div>
+
+<script>
+const cards = document.getElementById('cards');
+const msg = document.getElementById('msg');
+const rendered = new Map();   // usuario -> { el, json }
+const nf = new Intl.NumberFormat('es-ES');
+
+function el(tag, cls, text) {
+  const node = document.createElement(tag);
+  if (cls) node.className = cls;
+  if (text !== undefined && text !== null) node.textContent = text;
+  return node;
+}
+
+function ago(iso) {
+  if (!iso) return '';
+  const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+  if (s < 60) return 'ahora';
+  if (s < 3600) return 'hace ' + Math.floor(s / 60) + ' min';
+  if (s < 86400) return 'hace ' + Math.floor(s / 3600) + ' h';
+  return 'hace ' + Math.floor(s / 86400) + ' d';
+}
+
+function ledClass(m) {
+  if (m.status === 'notfound') return 'led bad';
+  if (m.status === 'public') return 'led live';
+  if (m.online) return 'led busy';
+  return 'led';
+}
+
+function dial(label, value) {
+  const d = el('div', 'dial');
+  d.append(el('div', 'label', label), el('div', 'value', value));
+  return d;
+}
+
+function buildCard(m) {
+  const card = el('section', 'card plate');
+
+  const head = el('div', 'head');
+  const avatar = el(/^https:\/\//.test(m.avatar) ? 'img' : 'div', 'avatar');
+  if (avatar.tagName === 'IMG') { avatar.src = m.avatar; avatar.alt = ''; avatar.referrerPolicy = 'no-referrer'; }
+  const who = el('div', 'who');
+  const name = el('div', 'name');
+  const link = el('a', null, m.username);
+  link.href = 'https://stripchat.com/' + encodeURIComponent(m.username);
+  link.target = '_blank'; link.rel = 'noopener noreferrer';
+  name.append(link);
+  const status = el('div', 'status');
+  let label = m.status_label;
+  if (!m.online && m.status !== 'notfound' && m.last_seen) label += ' · vista ' + ago(m.last_seen);
+  status.append(el('span', ledClass(m)), el('span', null, label));
+  who.append(name, status);
+  const remove = el('button', 'remove', 'Quitar');
+  remove.type = 'button';
+  remove.setAttribute('aria-label', 'Dejar de seguir a ' + m.username);
+  remove.onclick = async () => {
+    await fetch('/api/models/' + encodeURIComponent(m.username), { method: 'DELETE' });
+    refresh();
+  };
+  head.append(avatar, who, remove);
+  card.append(head);
+
+  if (m.error) card.append(el('div', 'error', m.error));
+  if (m.topic) card.append(el('div', 'topic', m.topic));
+
+  const dials = el('div', 'dials');
+  dials.append(
+    dial('Espectadores', m.viewers === null ? '—' : nf.format(m.viewers)),
+    dial('Tokens hoy', nf.format(m.tips.today)),
+    dial('Tokens total', nf.format(m.tips.total)),
+  );
+  card.append(dials);
+
+  const lists = el('div', 'lists');
+
+  const tips = el('div', 'box');
+  tips.append(el('h3', null, 'Propinas'));
+  if (m.tips.recent.length) {
+    const ul = el('ul');
+    for (const t of m.tips.recent) {
+      const li = el('li');
+      li.title = t.body || '';
+      li.append(el('span', 'u', t.username || 'Anónimo'), el('span', 't', ago(t.created_at)),
+                el('span', 'amt', nf.format(t.amount) + ' tk'));
+      ul.append(li);
+    }
+    tips.append(ul);
+  } else {
+    tips.append(el('div', 'note', 'Aún no se ha registrado ninguna propina.'));
+  }
+
+  const viewers = el('div', 'box');
+  const full = Array.isArray(m.viewer_names);
+  const names = full ? m.viewer_names : m.chatters;
+  const h3 = el('h3', null, full ? 'Espectadores' : 'Activos en el chat');
+  h3.append(el('span', null, String(names.length)));
+  viewers.append(h3);
+  if (names.length) {
+    const chips = el('div', 'chips');
+    for (const n of names) chips.append(el('span', 'chip', n));
+    viewers.append(chips);
+  } else {
+    viewers.append(el('div', 'note', m.online
+      ? 'Nadie ha escrito todavía en el chat.'
+      : 'Se mostrarán cuando esté en línea.'));
+  }
+
+  lists.append(tips, viewers);
+  card.append(lists);
+  return card;
+}
+
+function render(state) {
+  const names = new Set(state.models.map(m => m.username));
+  for (const [name, entry] of rendered) {
+    if (!names.has(name)) { entry.el.remove(); rendered.delete(name); }
+  }
+  const emptyNote = document.getElementById('empty');
+  if (!state.models.length) {
+    if (!emptyNote) {
+      const e = el('div', 'empty plate'); e.id = 'empty';
+      e.append(el('b', null, 'Todavía no sigues a nadie'),
+               document.createTextNode('Escribe arriba el nombre de una modelo y pulsa «Seguir».'));
+      cards.append(e);
+    }
+    return;
+  }
+  if (emptyNote) emptyNote.remove();
+
+  // Las horas relativas cambian solas: se redibuja también cada minuto.
+  const minute = Math.floor(Date.now() / 60000);
+  let previous = null;
+  for (const m of state.models) {
+    const copy = Object.assign({}, m, { checked_at: null });
+    const json = JSON.stringify(copy) + minute;
+    let entry = rendered.get(m.username);
+    if (!entry || entry.json !== json) {
+      const node = buildCard(m);
+      if (entry) {
+        // conserva la posición de desplazamiento de las listas
+        const tops = [...entry.el.querySelectorAll('ul, .chips')].map(n => n.scrollTop);
+        entry.el.replaceWith(node);
+        [...node.querySelectorAll('ul, .chips')].forEach((n, i) => { n.scrollTop = tops[i] || 0; });
+      }
+      entry = { el: node, json };
+      rendered.set(m.username, entry);
+    }
+    const expectedNext = previous ? previous.nextSibling : cards.firstChild;
+    if (entry.el !== expectedNext) cards.insertBefore(entry.el, expectedNext);
+    previous = entry.el;
+  }
+}
+
+async function refresh() {
+  const led = document.getElementById('pulse-led');
+  const text = document.getElementById('pulse-text');
+  try {
+    const response = await fetch('/api/state', { cache: 'no-store' });
+    if (!response.ok) throw new Error(response.status);
+    render(await response.json());
+    led.className = 'led live';
+    text.textContent = 'Actualizando en vivo';
+  } catch (error) {
+    led.className = 'led bad';
+    text.textContent = 'Sin conexión con StripWatch';
+  }
+}
+
+document.getElementById('add-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const input = document.getElementById('username');
+  if (!input.value.trim()) { msg.textContent = 'Escribe el nombre de una modelo.'; return; }
+  msg.textContent = '';
+  try {
+    const response = await fetch('/api/models', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: input.value }),
+    });
+    if (!response.ok) {
+      msg.textContent = (await response.json()).detail || 'No se pudo añadir.';
+      return;
+    }
+    input.value = '';
+    refresh();
+  } catch (error) {
+    msg.textContent = 'No se pudo conectar con StripWatch.';
+  }
+});
+
+refresh();
+setInterval(refresh, 2000);
+</script>
+</body>
+</html>

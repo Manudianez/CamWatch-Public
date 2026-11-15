@@ -1,7 +1,7 @@
-from config import Config
-from logger import logger
-from database import initialize_database
-from model_manager import add_model, list_models
+from .config import Config
+from .logger import logger
+from .database import initialize_database
+from .model_manager import add_model, list_models
 
 from rich.console import Console
 from rich.table import Table
@@ -53,8 +53,10 @@ def main():
             username = input("Nombre del modelo: ").strip()
 
             if username:
-                add_model(username)
-                logger.info(f"Modelo '{username}' añadido correctamente")
+                if add_model(username):
+                    logger.info(f"Modelo '{username}' añadido correctamente")
+                else:
+                    logger.warning(f"El modelo '{username}' ya estaba registrado.")
             else:
                 logger.warning("Debe introducir un nombre.")
 
