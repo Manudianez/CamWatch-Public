@@ -18,27 +18,33 @@ usan logotipos ni recursos de las plataformas.
 
 ## Puesta en marcha
 
-1. **Registrar la app en Statbate.** Se hace por correo (ver su
-   [documentación](https://docs.statbate.com/docs/plus/integrations/sign-in-with-statbate/)):
-   nombre del producto, direcciones de retorno y permisos `profile` y
-   `members:read`. Te devuelven un `client_id`.
-2. **Configurar.** Copia `.env.example` como `.env` y pon tu `client_id`.
-3. **Instalar y arrancar:**
+La app está registrada en Statbate con el `client_id` `stripwatch` y la
+dirección de retorno `https://localhost:8443/oauth/statbate/callback`, así que
+en tu propio ordenador funciona sin configurar nada más.
+
+1. **Certificado local** (una sola vez). Statbate solo acepta HTTPS; en Mac se
+   crea con [mkcert](https://github.com/FiloSottile/mkcert), dentro de la
+   carpeta del proyecto:
+
+   ```bash
+   brew install mkcert && mkcert -install && mkcert localhost
+   ```
+
+2. **Instalar y arrancar:**
 
    ```bash
    pip install -r requirements.txt
    python -m backend.server
    ```
 
-Statbate solo acepta direcciones HTTPS. Para probar en tu Mac puedes crear un
-certificado local con [mkcert](https://github.com/FiloSottile/mkcert):
+3. Abre https://localhost:8443 (tal cual: `localhost`, no `127.0.0.1`).
 
-```bash
-brew install mkcert && mkcert -install && mkcert localhost
-```
+Cada cuenta de Statbate admite hasta 3 instalaciones activas de la app (una
+por navegador). Si al entrar aparece un rechazo, libera alguna en la página
+«Connected apps» de Statbate.
 
-y abrir https://localhost:8443. La dirección de retorno a registrar es
-`PUBLIC_URL` + `/oauth/statbate/callback`.
+Para alojarla en internet hay que pedir a Statbate que añada la dirección de
+retorno pública y definir `PUBLIC_URL` (ver `.env.example`).
 
 ## Estructura
 

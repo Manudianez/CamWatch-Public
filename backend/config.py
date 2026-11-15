@@ -20,8 +20,8 @@ class Config:
     # Dirección pública de la app. Debe ser HTTPS: Statbate no acepta otra cosa.
     PUBLIC_URL = os.getenv("PUBLIC_URL", "https://localhost:8443").rstrip("/")
 
-    # Identificador que entrega Statbate al registrar la aplicación.
-    STATBATE_CLIENT_ID = os.getenv("STATBATE_CLIENT_ID", "")
+    # Identificador con el que Statbate registró la aplicación. Es público.
+    STATBATE_CLIENT_ID = os.getenv("STATBATE_CLIENT_ID", "stripwatch")
     STATBATE_BASE = os.getenv("STATBATE_BASE", "https://plus.statbate.com").rstrip("/")
 
     REDIRECT_URI = PUBLIC_URL + "/oauth/statbate/callback"

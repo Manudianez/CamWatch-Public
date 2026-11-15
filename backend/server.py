@@ -245,7 +245,14 @@ async def room(site: str, username: str, request: Request):
 
 
 def main():
-    cert, key = os.getenv("SSL_CERTFILE"), os.getenv("SSL_KEYFILE")
+    # Certificado HTTPS: el de .env o, si no hay, el que crea mkcert en la carpeta del proyecto.
+    root = APP_DIR.parent
+    cert = os.getenv("SSL_CERTFILE") or str(root / "localhost.pem")
+    key = os.getenv("SSL_KEYFILE") or str(root / "localhost-key.pem")
+    if not (Path(cert).is_file() and Path(key).is_file()):
+        cert = key = None
+        logger.warning("Sin certificado HTTPS: se arranca en http://127.0.0.1:8000 "
+                       "y el inicio de sesión con Statbate no funcionará (ver README).")
     uvicorn.run(
         app,
         host=os.getenv("HOST", "127.0.0.1"),
