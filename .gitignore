@@ -17,3 +17,5 @@ __pycache__/
 
 # Base de datos temporal (por ahora)
 database/*.db
+# Certificados locales
+*.pem

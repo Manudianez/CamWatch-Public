@@ -6,6 +6,19 @@ load_dotenv()
 
 class Config:
     APP_NAME = "StripWatch"
-    VERSION = "0.1.0"
+    VERSION = "0.2.0"
 
     DEBUG = os.getenv("DEBUG", "False") == "True"
+
+    # Dirección pública de la app. Debe ser HTTPS: Statbate no acepta otra cosa.
+    PUBLIC_URL = os.getenv("PUBLIC_URL", "https://localhost:8443").rstrip("/")
+
+    # Identificador que entrega Statbate al registrar la aplicación.
+    STATBATE_CLIENT_ID = os.getenv("STATBATE_CLIENT_ID", "")
+    STATBATE_BASE = os.getenv("STATBATE_BASE", "https://plus.statbate.com").rstrip("/")
+
+    REDIRECT_URI = PUBLIC_URL + "/oauth/statbate/callback"
+    SCOPES = "profile members:read"
+
+    MAX_FOLLOWS = 10          # modelos por cuenta
+    ROOM_CACHE_SECONDS = 45   # Statbate refresca cada sala una vez por minuto

@@ -1,39 +1,58 @@
 # StripWatch
 
-Contador en vivo de Stripchat. Escribes el nombre de una modelo y la app
-vigila su emisión: si está en línea, cuántos espectadores tiene, quién está
-activo en el chat y qué propinas (tokens) recibe.
+Contador en vivo de Stripchat. Entras con tu cuenta de Statbate, escribes el
+nombre de una modelo y ves si está en línea, quién está en la sala y cuántos
+tokens ha dado cada espectador.
 
-## Uso
+Los datos vienen de [Statbate Plus](https://plus.statbate.com) mediante
+«Sign in with Statbate». Cada persona usa su propia cuenta y necesita un plan
+Simple Plus o Studio Plus para recibir datos.
+
+## Puesta en marcha
+
+1. **Registrar la app en Statbate.** Se hace por correo (ver su
+   [documentación](https://docs.statbate.com/docs/plus/integrations/sign-in-with-statbate/)):
+   nombre del producto, direcciones de retorno y permisos `profile` y
+   `members:read`. Te devuelven un `client_id`.
+2. **Configurar.** Copia `.env.example` como `.env` y pon tu `client_id`.
+3. **Instalar y arrancar:**
+
+   ```bash
+   pip install -r requirements.txt
+   python -m backend.server
+   ```
+
+Statbate solo acepta direcciones HTTPS. Para probar en tu Mac puedes crear un
+certificado local con [mkcert](https://github.com/FiloSottile/mkcert):
 
 ```bash
-pip install -r requirements.txt
-python -m backend.server
+brew install mkcert && mkcert -install && mkcert localhost
 ```
 
-Después abre http://127.0.0.1:8000 en el navegador.
+y abrir https://localhost:8443. La dirección de retorno a registrar es
+`PUBLIC_URL` + `/oauth/statbate/callback`.
 
-## Cómo funciona
+## Estructura
 
-- `backend/stripchat.py` — consulta la API pública de Stripchat. Es el único
-  archivo que depende de cómo responde la web.
-- `backend/monitor.py` — revisa cada modelo seguida cada 4 segundos y guarda
-  las propinas.
-- `backend/server.py` — servidor web (FastAPI) y API que usa la interfaz.
-- `backend/database.py`, `backend/model_manager.py` — base de datos SQLite
-  en `database/stripwatch.db`.
+- `backend/statbate.py` — inicio de sesión (OAuth 2.0 con PKCE) y consultas a Statbate.
+- `backend/server.py` — servidor web (FastAPI): sesiones, modelos seguidas y salas.
+- `backend/database.py` — SQLite en `database/stripwatch.db` (sesiones y modelos seguidas).
+- `backend/config.py` — configuración leída de `.env`.
 - `app/index.html` — la interfaz.
-- `backend/main.py` — menú de consola original (`python -m backend.main`).
-
-Si los datos no aparecen, `http://127.0.0.1:8000/api/debug/NOMBRE` muestra
-las respuestas en bruto de Stripchat para esa modelo.
 
 ## Límites
 
-- Los tokens solo se cuentan mientras StripWatch está abierto y la modelo en
-  línea; lo que ocurra con la app cerrada no se registra.
-- Stripchat solo muestra al público el número de espectadores. Los nombres
-  que aparecen son los de quienes escriben o dan propina en el chat.
+- Statbate refresca cada sala como mucho una vez por minuto: no es instantáneo.
+- Los tokens mostrados son los que han dado en esa sala los espectadores que
+  están dentro en ese momento. No hay propinas una a una ni chat.
+- Una sala desconectada y un nombre que no existe se ven igual.
+- Cada cuenta puede seguir hasta 10 modelos.
+
+## Privacidad
+
+Los accesos de Statbate se guardan solo en el servidor. Al pulsar «Salir» se
+revocan y se borran junto con la lista de modelos seguidas. No se guarda
+ningún dato de espectadores.
 
 ## Author
 

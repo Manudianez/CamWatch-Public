@@ -57,7 +57,8 @@
     filter: drop-shadow(0 1px 0 rgba(255,255,255,.7));
   }
   .tag { color: var(--ink-soft); font-size: 13px; }
-  #pulse { margin-left: auto; font-size: 12px; color: var(--ink-soft); display: flex; align-items: center; gap: 6px; }
+  #user { margin-left: auto; font-size: 13px; color: var(--ink-soft); display: flex; align-items: center; gap: 10px; text-align: right; }
+  #user button { padding: 6px 12px; font-size: 13px; font-weight: 600; }
 
   .add { display: flex; gap: 10px; padding: 14px; }
   .add input {
@@ -81,11 +82,6 @@
   #cards { display: grid; gap: 18px; }
   .card { padding: 16px; }
   .head { display: flex; align-items: center; gap: 12px; }
-  .avatar {
-    width: 52px; height: 52px; border-radius: 50%; flex: none; object-fit: cover;
-    border: 2px solid #fff; box-shadow: 0 0 0 1px var(--steel-edge), 0 2px 5px rgba(0,0,0,.35);
-    background: linear-gradient(135deg, #cfd5db, #8d959f);
-  }
   .who { min-width: 0; flex: 1; }
   .name { font-size: 20px; font-weight: 800; overflow-wrap: anywhere; }
   .name a { color: inherit; text-decoration: none; }
@@ -100,7 +96,6 @@
   .led.bad  { background: var(--bad); }
   .remove { padding: 8px 12px; font-weight: 600; font-size: 13px; }
 
-  .topic { margin: 10px 2px 0; color: var(--ink-soft); font-size: 13px; overflow-wrap: anywhere; }
   .error { margin: 10px 2px 0; color: var(--bad); font-size: 13px; font-weight: 600; }
 
   .dials { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 14px; }
@@ -133,11 +128,6 @@
   .box .amt { margin-left: auto; font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
   .box .t { color: var(--ink-soft); font-size: 12px; white-space: nowrap; }
   .box .note { padding: 10px 12px; color: var(--ink-soft); font-size: 13px; }
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 12px; max-height: 230px; overflow-y: auto; }
-  .chip {
-    padding: 3px 10px; border-radius: 999px; font-size: 13px; font-weight: 600;
-    background: linear-gradient(180deg, #fff, #d3d8dd); border: 1px solid var(--steel-3);
-  }
 
   .empty { padding: 34px 18px; text-align: center; color: var(--ink-soft); }
   .empty b { display: block; color: var(--ink); font-size: 17px; margin-bottom: 4px; }
@@ -151,6 +141,21 @@
     .dial .value { font-size: 21px; }
     .dial .label { font-size: 10px; letter-spacing: .04em; }
   }
+  .login { padding: 34px 22px; text-align: center; }
+  .login h2 { margin: 0 0 8px; font-size: 22px; }
+  .login p { margin: 0 auto 18px; max-width: 520px; color: var(--ink-soft); }
+  .login a.go {
+    display: inline-block; font-weight: 700; font-size: 16px; color: var(--ink); text-decoration: none;
+    padding: 13px 26px; border-radius: 8px; border: 1px solid var(--steel-edge);
+    background: linear-gradient(180deg, #fff 0%, #dde1e6 45%, #b4bbc3 55%, #cdd2d8 100%);
+    box-shadow: inset 0 1px 0 #fff, 0 1px 2px rgba(0,0,0,.3);
+  }
+  .login a.go:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .login small { display: block; margin-top: 16px; color: var(--ink-soft); }
+  .notice { padding: 12px 16px; margin-bottom: 14px; font-weight: 600; }
+  .notice a { color: var(--accent); }
+  .foot { margin: 10px 2px 0; color: var(--ink-soft); font-size: 12px; }
+  .box .sub { color: var(--ink-soft); font-size: 12px; white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -158,23 +163,19 @@
   <header>
     <h1>StripWatch</h1>
     <span class="tag">Contador en vivo de Stripchat</span>
-    <span id="pulse"><span class="led" id="pulse-led"></span><span id="pulse-text">Conectando…</span></span>
+    <span id="user"></span>
   </header>
-
-  <form class="add plate" id="add-form" autocomplete="off">
-    <input id="username" name="username" placeholder="Nombre de la modelo o enlace de Stripchat" aria-label="Nombre de la modelo" autocapitalize="off" spellcheck="false">
-    <button type="submit">Seguir</button>
-  </form>
-  <div id="msg" role="alert"></div>
-
-  <div id="cards"></div>
+  <div id="main"></div>
 </div>
 
 <script>
-const cards = document.getElementById('cards');
-const msg = document.getElementById('msg');
-const rendered = new Map();   // usuario -> { el, json }
+const main = document.getElementById('main');
 const nf = new Intl.NumberFormat('es-ES');
+const REFRESH_MS = 60000;
+const rooms = new Map();   // modelo -> { el, data, error, timer }
+let session = null;
+let cards = null;
+let msg = null;
 
 function el(tag, cls, text) {
   const node = document.createElement(tag);
@@ -183,20 +184,163 @@ function el(tag, cls, text) {
   return node;
 }
 
-function ago(iso) {
-  if (!iso) return '';
-  const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
-  if (s < 60) return 'ahora';
+function ago(when) {
+  if (!when) return '';
+  const s = Math.max(0, (Date.now() - new Date(when).getTime()) / 1000);
+  if (s < 90) return 'hace un momento';
   if (s < 3600) return 'hace ' + Math.floor(s / 60) + ' min';
-  if (s < 86400) return 'hace ' + Math.floor(s / 3600) + ' h';
-  return 'hace ' + Math.floor(s / 86400) + ' d';
+  return 'hace ' + Math.floor(s / 3600) + ' h';
 }
 
-function ledClass(m) {
-  if (m.status === 'notfound') return 'led bad';
-  if (m.status === 'public') return 'led live';
-  if (m.online) return 'led busy';
-  return 'led';
+async function api(path, options) {
+  const response = await fetch(path, Object.assign({ cache: 'no-store' }, options));
+  if (response.status === 401) { location.href = '/'; throw new Error('401'); }
+  let body = null;
+  try { body = await response.json(); } catch (e) {}
+  if (!response.ok) {
+    const error = new Error((body && body.detail) || 'No se pudo completar la operación.');
+    error.status = response.status;
+    throw error;
+  }
+  return body;
+}
+
+const LOGIN_ERRORS = {
+  denied: 'No se completó el inicio de sesión en Statbate.',
+  state: 'El inicio de sesión caducó. Inténtalo de nuevo.',
+  signin: 'Statbate no aceptó el inicio de sesión. Inténtalo de nuevo.',
+  config: 'StripWatch todavía no está registrado en Statbate.',
+};
+
+function showLogin() {
+  const box = el('section', 'login plate');
+  box.append(el('h2', null, 'Sigue a tus modelos en vivo'));
+  box.append(el('p', null,
+    'Mira si están en línea, quién está en la sala y cuántos tokens han dado. ' +
+    'Los datos vienen de Statbate: entra con tu cuenta para verlos.'));
+  const error = new URLSearchParams(location.search).get('error');
+  if (error && LOGIN_ERRORS[error]) {
+    const note = el('p', null, LOGIN_ERRORS[error]);
+    note.style.color = 'var(--bad)'; note.style.fontWeight = '600';
+    note.setAttribute('role', 'alert');
+    box.append(note);
+    history.replaceState(null, '', '/');
+  }
+  if (session.configured) {
+    const go = el('a', 'go', 'Entrar con Statbate');
+    go.href = '/oauth/statbate/login';
+    box.append(go);
+    box.append(el('small', null, 'Necesitas una cuenta de Statbate con plan Simple Plus o Studio Plus. StripWatch nunca ve tu contraseña.'));
+  } else {
+    box.append(el('small', null, 'Falta configurar STATBATE_CLIENT_ID en el servidor.'));
+  }
+  main.replaceChildren(box);
+}
+
+function showApp() {
+  const user = document.getElementById('user');
+  const who = el('span', null, session.name + (session.plan.title ? ' · ' + session.plan.title : ''));
+  const out = el('button', null, 'Salir');
+  out.type = 'button';
+  out.onclick = async () => { await fetch('/api/logout', { method: 'POST' }); location.href = '/'; };
+  user.replaceChildren(who, out);
+
+  const form = el('form', 'add plate');
+  form.autocomplete = 'off';
+  const input = el('input');
+  input.name = 'username';
+  input.placeholder = 'Nombre de la modelo o enlace de Stripchat';
+  input.setAttribute('aria-label', 'Nombre de la modelo');
+  input.autocapitalize = 'off'; input.spellcheck = false;
+  const button = el('button', null, 'Seguir');
+  button.type = 'submit';
+  form.append(input, button);
+  msg = el('div'); msg.id = 'msg'; msg.setAttribute('role', 'alert');
+  cards = el('div'); cards.id = 'cards';
+
+  const parts = [];
+  if (!session.lookups) {
+    const notice = el('div', 'notice plate');
+    notice.append('Tu plan de Statbate no incluye estos datos. ');
+    if (/^https:\/\//.test(session.upgrade_url)) {
+      const link = el('a', null, 'Mejorar el plan');
+      link.href = session.upgrade_url; link.target = '_blank'; link.rel = 'noopener noreferrer';
+      notice.append(link);
+    }
+    parts.push(notice);
+  } else if (session.plan.is_trial && session.plan.expires_on) {
+    parts.push(el('div', 'notice plate',
+      'Estás en periodo de prueba hasta el ' + new Date(session.plan.expires_on).toLocaleDateString('es-ES') + '.'));
+  }
+  parts.push(form, msg, cards);
+  main.replaceChildren(...parts);
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!input.value.trim()) { msg.textContent = 'Escribe el nombre de una modelo.'; return; }
+    msg.textContent = '';
+    try {
+      const added = await api('/api/models', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: input.value }),
+      });
+      input.value = '';
+      follow(added.username);
+    } catch (error) {
+      msg.textContent = error.message;
+    }
+  });
+
+  session.follows.forEach(follow);
+  renderEmpty();
+  setInterval(() => rooms.forEach((room, name) => draw(name)), 30000);  // «hace X min»
+}
+
+function renderEmpty() {
+  const note = document.getElementById('empty');
+  if (rooms.size) { if (note) note.remove(); return; }
+  if (note) return;
+  const e = el('div', 'empty plate'); e.id = 'empty';
+  e.append(el('b', null, 'Todavía no sigues a nadie'),
+           document.createTextNode('Escribe arriba el nombre de una modelo y pulsa «Seguir».'));
+  cards.append(e);
+}
+
+function follow(name) {
+  const room = { el: el('section', 'card plate'), data: null, error: null, timer: null };
+  rooms.set(name, room);
+  // orden alfabético
+  const after = [...rooms.keys()].filter(n => n.toLowerCase() > name.toLowerCase())
+    .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))[0];
+  cards.insertBefore(room.el, after ? rooms.get(after).el : null);
+  renderEmpty();
+  draw(name);
+  load(name);
+  room.timer = setInterval(() => load(name), REFRESH_MS);
+}
+
+async function unfollow(name) {
+  const room = rooms.get(name);
+  try { await api('/api/models/' + encodeURIComponent(name), { method: 'DELETE' }); }
+  catch (error) { msg.textContent = error.message; return; }
+  clearInterval(room.timer);
+  room.el.remove();
+  rooms.delete(name);
+  renderEmpty();
+}
+
+async function load(name) {
+  const room = rooms.get(name);
+  if (!room) return;
+  try {
+    room.data = await api('/api/room/' + encodeURIComponent(name));
+    room.error = null;
+  } catch (error) {
+    if (error.message === '401') return;
+    room.error = error.message;
+  }
+  if (rooms.get(name) === room) draw(name);
 }
 
 function dial(label, value) {
@@ -205,163 +349,84 @@ function dial(label, value) {
   return d;
 }
 
-function buildCard(m) {
-  const card = el('section', 'card plate');
+function draw(name) {
+  const room = rooms.get(name);
+  const data = room.data;
+  const list = room.el.querySelector('ul');
+  const scroll = list ? list.scrollTop : 0;
 
   const head = el('div', 'head');
-  const avatar = el(/^https:\/\//.test(m.avatar) ? 'img' : 'div', 'avatar');
-  if (avatar.tagName === 'IMG') { avatar.src = m.avatar; avatar.alt = ''; avatar.referrerPolicy = 'no-referrer'; }
   const who = el('div', 'who');
-  const name = el('div', 'name');
-  const link = el('a', null, m.username);
-  link.href = 'https://stripchat.com/' + encodeURIComponent(m.username);
+  const title = el('div', 'name');
+  const link = el('a', null, name);
+  link.href = 'https://stripchat.com/' + encodeURIComponent(name);
   link.target = '_blank'; link.rel = 'noopener noreferrer';
-  name.append(link);
+  title.append(link);
   const status = el('div', 'status');
-  let label = m.status_label;
-  if (!m.online && m.status !== 'notfound' && m.last_seen) label += ' · vista ' + ago(m.last_seen);
-  status.append(el('span', ledClass(m)), el('span', null, label));
-  who.append(name, status);
+  let led = 'led', label = 'Comprobando…';
+  if (data) {
+    led = data.online ? 'led live' : 'led';
+    label = data.online ? 'En línea' : 'Desconectada (o el nombre no existe)';
+  }
+  if (room.error && !data) { led = 'led bad'; label = 'Sin datos'; }
+  status.append(el('span', led), el('span', null, label));
+  who.append(title, status);
   const remove = el('button', 'remove', 'Quitar');
   remove.type = 'button';
-  remove.setAttribute('aria-label', 'Dejar de seguir a ' + m.username);
-  remove.onclick = async () => {
-    await fetch('/api/models/' + encodeURIComponent(m.username), { method: 'DELETE' });
-    refresh();
-  };
-  head.append(avatar, who, remove);
-  card.append(head);
+  remove.setAttribute('aria-label', 'Dejar de seguir a ' + name);
+  remove.onclick = () => unfollow(name);
+  head.append(who, remove);
 
-  if (m.error) card.append(el('div', 'error', m.error));
-  if (m.topic) card.append(el('div', 'topic', m.topic));
+  const parts = [head];
+  if (room.error) parts.push(el('div', 'error', room.error));
 
   const dials = el('div', 'dials');
   dials.append(
-    dial('Espectadores', m.viewers === null ? '—' : nf.format(m.viewers)),
-    dial('Tokens hoy', nf.format(m.tips.today)),
-    dial('Tokens total', nf.format(m.tips.total)),
+    dial('Espectadores', data ? nf.format(data.viewers) : '—'),
+    dial('Tokens última hora', data ? nf.format(data.tokens_hour) : '—'),
+    dial('Tokens hoy', data ? nf.format(data.tokens_day) : '—'),
   );
-  card.append(dials);
+  parts.push(dials);
 
-  const lists = el('div', 'lists');
-
-  const tips = el('div', 'box');
-  tips.append(el('h3', null, 'Propinas'));
-  if (m.tips.recent.length) {
-    const ul = el('ul');
-    for (const t of m.tips.recent) {
-      const li = el('li');
-      li.title = t.body || '';
-      li.append(el('span', 'u', t.username || 'Anónimo'), el('span', 't', ago(t.created_at)),
-                el('span', 'amt', nf.format(t.amount) + ' tk'));
-      ul.append(li);
+  if (data && data.online) {
+    const box = el('div', 'box');
+    box.style.marginTop = '12px';
+    const h3 = el('h3', null, 'En la sala');
+    h3.append(el('span', null, 'tokens hoy · en total'));
+    box.append(h3);
+    if (data.users.length) {
+      const ul = el('ul');
+      for (const u of data.users) {
+        const li = el('li');
+        li.append(el('span', 'u', u.username),
+                  el('span', 'amt', u.day ? nf.format(u.day) + ' tk' : '—'),
+                  el('span', 'sub', nf.format(u.all_time) + ' tk'));
+        ul.append(li);
+      }
+      box.append(ul);
+    } else {
+      box.append(el('div', 'note', 'Statbate no ve a nadie identificado en la sala ahora mismo.'));
     }
-    tips.append(ul);
-  } else {
-    tips.append(el('div', 'note', 'Aún no se ha registrado ninguna propina.'));
+    parts.push(box);
+    parts.push(el('div', 'foot',
+      'Los tokens son los que han dado en esta sala quienes están dentro ahora. ' +
+      'Datos de Statbate, tomados ' + (ago(data.cached_at) || 'hace un momento') + '; se renuevan cada minuto.'));
   }
 
-  const viewers = el('div', 'box');
-  const full = Array.isArray(m.viewer_names);
-  const names = full ? m.viewer_names : m.chatters;
-  const h3 = el('h3', null, full ? 'Espectadores' : 'Activos en el chat');
-  h3.append(el('span', null, String(names.length)));
-  viewers.append(h3);
-  if (names.length) {
-    const chips = el('div', 'chips');
-    for (const n of names) chips.append(el('span', 'chip', n));
-    viewers.append(chips);
-  } else {
-    viewers.append(el('div', 'note', m.online
-      ? 'Nadie ha escrito todavía en el chat.'
-      : 'Se mostrarán cuando esté en línea.'));
-  }
-
-  lists.append(tips, viewers);
-  card.append(lists);
-  return card;
+  room.el.replaceChildren(...parts);
+  const newList = room.el.querySelector('ul');
+  if (newList) newList.scrollTop = scroll;
 }
 
-function render(state) {
-  const names = new Set(state.models.map(m => m.username));
-  for (const [name, entry] of rendered) {
-    if (!names.has(name)) { entry.el.remove(); rendered.delete(name); }
-  }
-  const emptyNote = document.getElementById('empty');
-  if (!state.models.length) {
-    if (!emptyNote) {
-      const e = el('div', 'empty plate'); e.id = 'empty';
-      e.append(el('b', null, 'Todavía no sigues a nadie'),
-               document.createTextNode('Escribe arriba el nombre de una modelo y pulsa «Seguir».'));
-      cards.append(e);
-    }
+(async () => {
+  try {
+    session = await api('/api/session');
+  } catch (error) {
+    main.replaceChildren(el('div', 'empty plate', 'No se pudo conectar con StripWatch. Recarga la página.'));
     return;
   }
-  if (emptyNote) emptyNote.remove();
-
-  // Las horas relativas cambian solas: se redibuja también cada minuto.
-  const minute = Math.floor(Date.now() / 60000);
-  let previous = null;
-  for (const m of state.models) {
-    const copy = Object.assign({}, m, { checked_at: null });
-    const json = JSON.stringify(copy) + minute;
-    let entry = rendered.get(m.username);
-    if (!entry || entry.json !== json) {
-      const node = buildCard(m);
-      if (entry) {
-        // conserva la posición de desplazamiento de las listas
-        const tops = [...entry.el.querySelectorAll('ul, .chips')].map(n => n.scrollTop);
-        entry.el.replaceWith(node);
-        [...node.querySelectorAll('ul, .chips')].forEach((n, i) => { n.scrollTop = tops[i] || 0; });
-      }
-      entry = { el: node, json };
-      rendered.set(m.username, entry);
-    }
-    const expectedNext = previous ? previous.nextSibling : cards.firstChild;
-    if (entry.el !== expectedNext) cards.insertBefore(entry.el, expectedNext);
-    previous = entry.el;
-  }
-}
-
-async function refresh() {
-  const led = document.getElementById('pulse-led');
-  const text = document.getElementById('pulse-text');
-  try {
-    const response = await fetch('/api/state', { cache: 'no-store' });
-    if (!response.ok) throw new Error(response.status);
-    render(await response.json());
-    led.className = 'led live';
-    text.textContent = 'Actualizando en vivo';
-  } catch (error) {
-    led.className = 'led bad';
-    text.textContent = 'Sin conexión con StripWatch';
-  }
-}
-
-document.getElementById('add-form').addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const input = document.getElementById('username');
-  if (!input.value.trim()) { msg.textContent = 'Escribe el nombre de una modelo.'; return; }
-  msg.textContent = '';
-  try {
-    const response = await fetch('/api/models', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: input.value }),
-    });
-    if (!response.ok) {
-      msg.textContent = (await response.json()).detail || 'No se pudo añadir.';
-      return;
-    }
-    input.value = '';
-    refresh();
-  } catch (error) {
-    msg.textContent = 'No se pudo conectar con StripWatch.';
-  }
-});
-
-refresh();
-setInterval(refresh, 2000);
+  if (session.logged_in) showApp(); else showLogin();
+})();
 </script>
 </body>
 </html>
