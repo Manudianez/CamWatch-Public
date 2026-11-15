@@ -2,7 +2,9 @@
 
 import asyncio
 import html
+import json
 import os
+import re
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -29,6 +31,8 @@ COOKIE_INSTALL = "cw_install"
 
 statbate = StatbateClient()
 refresh_locks = {}   # sid -> candado: una sola renovación en curso por sesión
+stripchat_income_cache = (0, {})
+stripchat_income_lock = asyncio.Lock()
 room_cache = {}      # (cuenta, modelo) -> (instante, datos)
 
 
@@ -221,6 +225,55 @@ async def remove_model(site: str, username: str, request: Request):
     return {"ok": True}
 
 
+async def stripchat_audience(username):
+    """Read the latest public audience snapshot, independently of Statbate."""
+    try:
+        async with httpx.AsyncClient(timeout=4, follow_redirects=True) as client:
+            response = await client.get(f"https://stripexplorer.com/{username}")
+            response.raise_for_status()
+        script = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', response.text, re.S)
+        if not script:
+            return None
+        page = json.loads(script[1])["props"]["pageProps"]
+        if page.get("isOnline") is not True:
+            return None
+        stream = page["userInfo"]["currentStreamInfo"]
+        count, measured_at = stream["Viewers"], stream["Time"]
+        if type(count) is int and count >= 0 and isinstance(measured_at, str):
+            return {"count": count, "measured_at": measured_at}
+    except (httpx.HTTPError, ValueError, KeyError, TypeError):
+        return None
+    return None
+
+
+async def stripchat_session_tokens(username):
+    """Convert Statbate's public live-session estimate from USD to tokens."""
+    global stripchat_income_cache
+    async with stripchat_income_lock:
+        fetched_at, rooms = stripchat_income_cache
+        if time.monotonic() - fetched_at >= 60 or not fetched_at:
+            rooms = {}
+            try:
+                async with httpx.AsyncClient(timeout=5, follow_redirects=True) as client:
+                    response = await client.get("https://statbate.com/strip/online")
+                    response.raise_for_status()
+                match = re.search(r"var listData = (\{[^\n]*\});", response.text)
+                if match:
+                    rooms = {
+                        name.casefold(): room.get("income")
+                        for name, room in json.loads(match[1]).items()
+                        if isinstance(room, dict)
+                    }
+            except (httpx.HTTPError, ValueError):
+                pass
+            stripchat_income_cache = (time.monotonic(), rooms)
+
+    income = rooms.get(username.casefold())
+    if type(income) in (int, float) and income >= 0:
+        return round(income * 20)  # Statbate usa 0,05 USD por token de Stripchat.
+    return None
+
+
 @app.get("/api/room/{site}/{username}")
 async def room(site: str, username: str, request: Request):
     session = signed_in(request)
@@ -239,6 +292,10 @@ async def room(site: str, username: str, request: Request):
     except (httpx.HTTPError, ValueError) as problem:
         logger.warning(f"{site}/{username}: {problem!r}")
         raise HTTPException(502, "No se pudo consultar Statbate.")
+    if site == "stripchat" and data["online"]:
+        data["audience"], data["session_tokens_estimate"] = await asyncio.gather(
+            stripchat_audience(username), stripchat_session_tokens(username)
+        )
     data["checked_at"] = time.time()
     room_cache[key] = (time.time(), data)
     return data

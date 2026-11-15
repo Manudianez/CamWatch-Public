@@ -299,7 +299,7 @@ function showLogin() {
 
 function showApp() {
   const user = document.getElementById('user');
-  const who = el('span', null, session.name + (session.plan.title ? ' · ' + session.plan.title : ''));
+  const who = el('span', null, [session.name, session.plan.title].filter(Boolean).join(' · '));
   const out = el('button', null, 'Salir');
   out.type = 'button';
   out.onclick = async () => { await fetch('/api/logout', { method: 'POST' }); location.href = '/'; };
@@ -479,7 +479,10 @@ function draw(name) {
     led = data.online ? 'led live' : 'led';
     label = data.online ? 'En línea' : 'Desconectada (o el nombre no existe)';
   }
-  if (room.error && !data) { led = 'led bad'; label = 'Sin datos'; }
+  if (room.error) {
+    led = 'led bad';
+    label = data ? 'Últimos datos disponibles' : 'Sin datos';
+  }
   status.append(el('span', led), el('span', null, label));
   who.append(title, status);
   const remove = el('button', 'remove', 'Quitar');
@@ -489,15 +492,28 @@ function draw(name) {
   head.append(who, remove);
 
   const parts = [head];
-  if (room.error) parts.push(el('div', 'error', room.error));
+  if (room.error) {
+    parts.push(el('div', 'error', room.error));
+  }
 
   const dials = el('div', 'dials');
   dials.append(
-    dial('Espectadores', data ? nf.format(data.viewers) : '—',
+    dial('Usuarios detectados', data ? nf.format(data.viewers) : '—',
          data && data.guests ? '+ ' + nf.format(data.guests) + ' sin cuenta' : ''),
-    dial('Dados última hora', data ? tokens(data.tokens_hour) : '—', 'por los presentes'),
-    dial('Dados esta semana', data ? tokens(data.tokens_week) : '—', 'por los presentes'),
+    dial('Tokens de usuarios detectados', data ? tokens(data.tokens_hour) : '—', 'Última hora'),
+    dial('Tokens de usuarios detectados', data ? tokens(data.tokens_week) : '—', 'Esta semana'),
   );
+  if (site === 'stripchat') {
+    const audience = data?.audience;
+    const sessionTokens = data?.session_tokens_estimate;
+    dials.prepend(dial('Tokens de la emisión',
+      sessionTokens == null ? '—' : '≈ ' + nf.format(sessionTokens),
+      sessionTokens == null ? 'Sin estimación disponible' : 'Propinas registradas por Statbate'));
+    dials.prepend(dial('Espectadores de Stripchat',
+      audience ? nf.format(audience.count) : '—',
+      audience ? 'Según Stripchat Explorer · ' + (ago(audience.measured_at) || 'hora no disponible')
+               : 'Sin recuento disponible'));
+  }
   parts.push(dials);
 
   if (data && data.online) {
@@ -518,12 +534,12 @@ function draw(name) {
       }
       box.append(ul);
     } else {
-      box.append(el('div', 'note', 'Statbate no ve a nadie identificado en la sala ahora mismo.'));
+      box.append(el('div', 'note', 'Statbate no identificó a ningún usuario en esta consulta.'));
     }
     parts.push(box);
     parts.push(el('div', 'foot',
-      'Los tokens son los que han dado en esta sala quienes están dentro ahora, no el total de la emisión. ' +
-      'Datos de Statbate, tomados ' + (ago(data.cached_at) || 'hace un momento') + '; se renuevan cada minuto.'));
+      'Los tokens corresponden a los usuarios detectados en esta consulta. ' +
+      'Datos de Statbate, tomados ' + (ago(data.cached_at) || 'hace un momento') + (room.error ? '.' : '; se renuevan cada minuto.')));
   }
 
   room.el.replaceChildren(...parts);
