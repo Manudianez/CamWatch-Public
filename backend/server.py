@@ -244,6 +244,18 @@ async def room(site: str, username: str, request: Request):
     return data
 
 
+@app.get("/api/debug/{site}/{username}")
+async def debug_room(site: str, username: str, request: Request):
+    """Lo que responde Statbate para una sala que sigues (nombres ocultos)."""
+    session = signed_in(request)
+    if {"site": site, "username": username} not in db.list_follows(session["account_id"]):
+        raise HTTPException(404, "No sigues a esta modelo.")
+    try:
+        return await call(session, statbate.room_raw, site, username)
+    except (PlanRequired, RateLimited, httpx.HTTPError) as problem:
+        raise HTTPException(502, f"No se pudo consultar Statbate ({type(problem).__name__}).")
+
+
 def main():
     # Certificado HTTPS: el de .env o, si no hay, el que crea mkcert en la carpeta del proyecto.
     root = APP_DIR.parent

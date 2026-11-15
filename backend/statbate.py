@@ -155,6 +155,23 @@ class StatbateClient:
         response.raise_for_status()
         return response.json()
 
+    async def room_raw(self, access_token, site, username):
+        """Respuesta de Statbate tal cual, con los nombres ocultos, para diagnóstico."""
+        response = await self._get(access_token, f"/api/room/{site}/{username}/online-users")
+        try:
+            body = response.json()
+        except ValueError:
+            return {"http": response.status_code, "text": response.text[:500]}
+        users = body.get("users") if isinstance(body, dict) else None
+        if isinstance(users, list):
+            sample = sorted(
+                (u for u in users if isinstance(u, dict)),
+                key=lambda u: -sum(v for v in u.values() if isinstance(v, (int, float)) and not isinstance(v, bool)),
+            )[:5]
+            body["users"] = [dict(u, username=f"usuario_{i + 1}") for i, u in enumerate(sample)]
+            body["total_users"] = len(users)
+        return {"http": response.status_code, "body": body}
+
     async def room(self, access_token, site, username):
         """Espectadores de una sala y lo que ha dado cada uno."""
         response = await self._get(
